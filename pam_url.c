@@ -214,32 +214,36 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 	
 	char *safe_passwd = NULL;
 
-	if( opts.prepend_first_pass && NULL != opts.first_pass )
-	{
-		char *combined = NULL;
-		debug(pamh, "Prepending previously used password.");
-		if( asprintf(&combined, "%s%s", opts.first_pass, opts.passwd) < 0 ||
-			combined == NULL )
+	if( !opts.skip_password ) {
+		if( opts.prepend_first_pass && NULL != opts.first_pass )
 		{
+			char *combined = NULL;
+			debug(pamh, "Prepending previously used password.");
+			if( asprintf(&combined, "%s%s", opts.first_pass, opts.passwd) < 0 ||
+				combined == NULL )
+			{
+				free(combined);
+				debug(pamh, "Out of memory");
+				curl_free(safe_user);
+				goto curl_error_3;
+			}
+
+			safe_passwd = curl_easy_escape(eh, combined, 0);
 			free(combined);
-			debug(pamh, "Out of memory");
+		}
+		else
+		{
+			safe_passwd = curl_easy_escape(eh, opts.passwd, 0);
+		}
+
+		if( safe_passwd == NULL ) {
 			curl_free(safe_user);
 			goto curl_error_3;
 		}
-
-		safe_passwd = curl_easy_escape(eh, combined, 0);
-		free(combined);
+	} else {
+		safe_passwd = curl_easy_escape(eh, "", 0);
 	}
-	else
-	{
-		safe_passwd = curl_easy_escape(eh, opts.passwd, 0);
-	}
-
-	if( safe_passwd == NULL ) {
-		curl_free(safe_user);
-		goto curl_error_3;
-	}
-
+	
 	ret = asprintf(&post, "%s=%s&%s=%s&mode=%s%s", opts.user_field,
 							safe_user,
 							opts.passwd_field,
@@ -247,7 +251,7 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 							opts.mode,
 							opts.extra_field);
 	
-	curl_free(safe_passwd);
+	curl_free(safe_passwd);	
 	curl_free(safe_user);
 
 	if (ret == -1)
