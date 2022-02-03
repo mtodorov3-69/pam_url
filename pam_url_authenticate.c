@@ -1,4 +1,5 @@
 // pam_url - GPLv2, Sascha Thomas Spreitzer, https://fedorahosted.org/pam_url
+// GPLv2 - Mirsad Goran Todorovac, 2022-02-03, adding skip_password option
 
 #include "pam_url.h"
 
