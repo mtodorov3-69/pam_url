@@ -1,7 +1,8 @@
 // pam_url - GPLv2, Sascha Thomas Spreitzer, https://fedorahosted.org/pam_url
-// GPLv2 Mirsad Goran Todorovac, 2022-02-03
-//                               added skip-password option for additional auth
-//                               checking with certs
+// GPLv2 Mirsad Goran Todorovac,
+// 2022-02-03 added skip-password option for additional auth
+//                checking with certs
+//            enabled header include check for new libcurl of 2021
 
 #ifndef PAM_URL_H_
 #define PAM_URL_H_
@@ -32,7 +33,7 @@
 #endif
 
 #include <curl/curl.h>
-#ifndef __CURL_CURL_H
+#if !defined(__CURL_CURL_H) && !defined(CURLINC_CURL_H)
 	#error libcurl headers not found on this system. Giving up.
 #endif
 
