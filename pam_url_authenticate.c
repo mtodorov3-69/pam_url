@@ -20,7 +20,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,
 		debug(pamh, "Could not get user item from pam.");
 	}
 
-	if( PAM_SUCCESS != pam_get_item(pamh, PAM_AUTHTOK, &opts.passwd) )
+	if( !opts.skip_password && (PAM_SUCCESS != pam_get_item(pamh, PAM_AUTHTOK, &opts.passwd)) )
 	{
 		ret++;
 		debug(pamh, "Could not get password item from pam.");
@@ -32,7 +32,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,
 		debug(pamh, "Could not parse module options.");
 	}
 
-	if( !opts.use_first_pass || NULL == opts.passwd )
+	if( !opts.skip_password && (!opts.use_first_pass || NULL == opts.passwd) )
 	{
 		if( NULL != opts.passwd ) {
 			opts.first_pass = strdup(opts.passwd);
