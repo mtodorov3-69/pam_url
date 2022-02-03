@@ -11,6 +11,7 @@
 char* recvbuf = NULL;
 size_t recvbuf_size = 0;
 static config_t config;
+bool  pam_url_debug = false;
 
 void debug(pam_handle_t* pamh, const char *msg)
 {
@@ -50,6 +51,7 @@ int parse_opts(pam_url_opts *opts, int argc, const char *argv[], int mode)
 	opts->configfile = NULL;
 	opts->use_first_pass = false;
 	opts->prepend_first_pass = false;
+	opts->skip_password = false;
 	opts->first_pass = NULL;
 	
 	if(argc > 0 && argv != NULL)
