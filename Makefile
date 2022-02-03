@@ -1,6 +1,9 @@
 # pam_url - GPLv2, Sascha Thomas Spreitzer, https://fedorahosted.org/pam_url
+# GPLv2 - Mirsad Goran Todorovac, 2022-02-03, do not overwrite the existing config file
 
 libs		+= libcurl libconfig
+
+DESTDIR		= /usr/local
 
 CFLAGS		+= -fPIC -pthread -D_GNU_SOURCE $(shell pkg-config --cflags ${libs})
 
@@ -34,7 +37,7 @@ clean:
 
 install:
 	install -D -m 755 ${obj} ${DESTDIR}/${pamlib}/${obj}
-	install -D -m 644 examples/pam_url.conf ${DESTDIR}/etc/pam_url.conf
+	test -s ${DESTDIR}/etc/pam_url.conf || install -D -m 644 examples/pam_url.conf ${DESTDIR}/etc/pam_url.conf
 
 uninstall:
 	rm -f ${DESTDIR}/${pamlib}/${obj}
