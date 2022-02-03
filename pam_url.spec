@@ -64,3 +64,6 @@ make DESTDIR=%{buildroot} install
 * Sun May 03 2009 Sascha Thomas Spreitzer <sspreitzer@fedoraproject.org>
 - First shot of rpm spec.
 
+* Thu Feb 03 2022 Mirsad Goran Todorovac <mirsad.todorovac@alu.unizg.hr>
+- Added the skip-password option.
+
