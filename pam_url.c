@@ -1,4 +1,7 @@
 // pam_url - GPLv2, Sascha Thomas Spreitzer, https://fedorahosted.org/pam_url
+// GPLv2, Mirsad Goran Todorovac, 2022-02-03, adding option for passwordless auth
+//                                            with pam_url (i.e. with certs and additional
+//                                            validation).
 
 #include "pam_url.h"
 
@@ -76,6 +79,12 @@ int parse_opts(pam_url_opts *opts, int argc, const char *argv[], int mode)
 			if(strcmp(argv[next_arg], "prepend_first_pass") == 0)
 			{
 				opts->prepend_first_pass = true;
+				continue;
+			}
+
+			if(strcmp(argv[next_arg], "skip_password") == 0)
+			{
+				opts->skip_password = true;
 				continue;
 			}
 		}
