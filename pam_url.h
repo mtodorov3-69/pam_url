@@ -98,6 +98,7 @@ typedef struct pam_url_opts_ {
 	const char *ca_cert;
 	int use_first_pass;
 	int prepend_first_pass;
+	int skip_password;
 	char *first_pass;
 
 	int ssl_verify_peer;
