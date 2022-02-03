@@ -33,6 +33,10 @@ You can additionally set the following options:
                         to be able to pass both the password and the token code to the
                         verification server. It's probably not useful for any other
                         purpose.)
+    skip_password	Do not prompt for password
+			(If you are authenticating a VPN connection with a certificate
+			and you need additional permission check, then there is no one
+			one the other side of IKE to type in the password.)
 
 Please take a look inside the examples directory.
 Please read the COPYING, INSTALL and AUTHOR files as well.
