@@ -12,6 +12,8 @@ The author of this software is Sascha Thomas Spreitzer <sspreitzer (at) fedorapr
 http://spreitzer.name/
 https://fedoraproject.org/wiki/User:Sspreitzer
 
+Modified by Mirsad Goran Todorovac <mtodorov (at) alu.unizg.hr>.
+
 USE THIS SOFTWARE WITH ABSOLUTELY NO GUARANTEE AND WARRANTY
 
 
@@ -35,8 +37,9 @@ You can additionally set the following options:
                         purpose.)
     skip_password	Do not prompt for password
 			(If one is authenticating a VPN connection with a certificate
-			and you need additional permission check, then there is no one
-			one the other side of IKE to type in the password.
+			and you need additional permission check like libreswan's
+			pam-authorize, then there is no way to prompt the user
+			on the other side of IKE to type in the password.
 			This option is also handy with pam_radius_auth, where 
 			authentication may be preformed i.e. over a remote RADIUS server.)
 
