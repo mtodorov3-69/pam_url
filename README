@@ -43,7 +43,8 @@ You can additionally set the following options:
 			This option is also handy with pam_radius_auth, where 
 			authentication may be preformed i.e. over a remote RADIUS server.)
 			CAUTION: use of pam_url without password is only supported if
-				 another modules does main authentication previously!
+				 another modules does main authentication previously,
+				 i.e. via certificate or RADIUS authentication!
 				 Enabling pam_url as the only and sufficient method of
 				 communication will leave your system open to login
 				 without passwords!
