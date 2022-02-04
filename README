@@ -42,6 +42,11 @@ You can additionally set the following options:
 			on the other side of IKE to type in the password.
 			This option is also handy with pam_radius_auth, where 
 			authentication may be preformed i.e. over a remote RADIUS server.)
+			CAUTION: use of pam_url without password is only supported if
+				 another modules does main authentication previously!
+				 Enabling pam_url as the only and sufficient method of
+				 communication will leave your system open to login
+				 without passwords!
 
 Please take a look inside the examples directory.
 Please read the COPYING, INSTALL and AUTHOR files as well.
