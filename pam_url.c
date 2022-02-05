@@ -22,7 +22,6 @@ int get_password(pam_handle_t* pamh, pam_url_opts* opts)
 {
 	char* p = NULL;
 	const char *prompt;
-	int prompt_len = 0;
 
 	if(config_lookup_string(&config, "pam_url.settings.prompt", &prompt) == CONFIG_FALSE)
 		prompt = DEF_PROMPT;
@@ -221,7 +220,7 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 		{
 			char *combined = NULL;
 			debug(pamh, "Prepending previously used password.");
-			if( asprintf(&combined, "%s%s", opts.first_pass, opts.passwd) < 0 ||
+			if( asprintf(&combined, "%s%s", opts.first_pass, (char const*) opts.passwd) < 0 ||
 				combined == NULL )
 			{
 				free(combined);
@@ -348,8 +347,6 @@ curl_error_1:
 
 int check_rc(pam_url_opts opts)
 {
-	int ret=0;
-
 	if( NULL == recvbuf )
 	{
 		return PAM_AUTH_ERR;
