@@ -13,7 +13,6 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,
 {
 	pam_url_opts opts;
 	int ret = 0;
-	int len = 0;
 
 	if ( PAM_SUCCESS != pam_get_item(pamh, PAM_USER, &opts.user) )
 	{
