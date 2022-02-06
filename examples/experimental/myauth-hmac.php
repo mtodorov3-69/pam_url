@@ -31,9 +31,11 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 	$sha256 = $_POST["hash"];
 	if (($rawsecret = file_get_contents("/usr/local/etc/myauth/secret")) !== false) {
 		$secret = trim($rawsecret);
-		$mysha256 = hash("sha256", $nonce . $secret);
-		if ($sha256 !== $mysha256)
+		$mysha256 = hash("sha256", $nonce . $_POST["user"] . $_POST["pass"] . $_POST["mode"] . $_POST["clientIP"] . $secret . $nonce);
+		if ($sha256 !== $mysha256) {
+			$secret = "";
 			$ret = 401;
+		}
 	} else {
 		$ret = 402;
 	}
@@ -94,7 +96,9 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 	if( 0 == $ret )
 	{
 		header("HTTP/1.1 200 OK");
-		echo "OK";
+		$rethash = hash("sha256", $nonce . $secret . $nonce);
+		$secret = "";
+		echo "OK $rethash";
 	}
 	else if ( $ret == 401 || $ret == 402 )
 	{

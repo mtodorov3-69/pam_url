@@ -196,11 +196,13 @@ int curl_debug(CURL *C, curl_infotype info, char * text, size_t textsize, void* 
 	return 0;
 }
 
+char *rethash = NULL;
+
 int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 {
 	CURL* eh = NULL;
 	char* post = NULL;
-	int ret = 0;
+	int ret = 0, ret2 = 0;
 	char* nonce = NULL;
 
 	if( NULL == opts.user )
@@ -219,12 +221,13 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 	if( safe_user == NULL )
 		goto curl_error_3;
 	
+	const char *passwd = NULL;
 	char *safe_passwd = NULL;
+	char *combined = NULL;
 
 	if( !opts.skip_password ) {
 		if( opts.prepend_first_pass && NULL != opts.first_pass )
 		{
-			char *combined = NULL;
 			debug(pamh, "Prepending previously used password.");
 			if( asprintf(&combined, "%s%s", opts.first_pass, (const char *)opts.passwd) < 0 ||
 				combined == NULL )
@@ -235,25 +238,30 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 				goto curl_error_3;
 			}
 
+			passwd = combined;
 			safe_passwd = curl_easy_escape(eh, combined, 0);
-			free(combined);
 		}
 		else
 		{
+			passwd = opts.passwd;
 			safe_passwd = curl_easy_escape(eh, opts.passwd, 0);
 		}
 
 		if( safe_passwd == NULL ) {
+			SAFE_FREE(combined);
 			curl_free(safe_user);
 			goto curl_error_3;
 		}
 	} else {
 		debug(pamh, "Skipping password.");
+		passwd = "";
 		safe_passwd = curl_easy_escape(eh, "", 0);
 	}
 	
 	char *concat_str = NULL;
+	char *concat_retstr = NULL;
 	char *fields = NULL;
+	char *safe_fields = NULL;
 	char *secret = NULL, *hash = NULL;
 	char *trim_secret = NULL;
 
@@ -277,7 +285,8 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 	else
 		goto curl_error;
 	SAFE_FREE (secret);
-	ret = asprintf(&fields, "%s=%s&%s=%s&mode=%s&clientIP=%s&nonce=%s%s", opts.user_field,
+
+	ret = asprintf(&safe_fields, "%s=%s&%s=%s&mode=%s&clientIP=%s&nonce=%s%s", opts.user_field,
 							safe_user,
 							opts.passwd_field,
 							safe_passwd,
@@ -293,17 +302,30 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 	if (ret == -1)
 		goto curl_error;
 
-	ret = asprintf(&concat_str, "%s%s", nonce, trim_secret);
+	ret = asprintf(&fields, "%s%s%s%s", (const char *)opts.user,
+						passwd,
+						opts.mode,
+						(const char *)opts.clientIP);
+	SAFE_FREE (combined);
+	if (ret == -1)
+		goto curl_error;
+
+	ret = asprintf(&concat_str, "%s%s%s%s", nonce, fields, trim_secret, nonce);
+	ret2 = asprintf(&concat_retstr, "%s%s%s", nonce, trim_secret, nonce);
+	SAFE_FREE (fields);
 	SAFE_FREE (trim_secret);
 	SAFE_FREE (nonce);
-	if (ret == -1)
+	if (ret == -1 || ret2 == -1 || concat_str == NULL || concat_retstr == NULL)
 		goto curl_error;
 
 	hash = sha256_string (concat_str);
 	SAFE_FREE (concat_str);
 
-	ret = asprintf(&post, "%s&hash=%s", fields, hash);
-	SAFE_FREE (fields);
+	rethash = sha256_string (concat_retstr);
+	SAFE_FREE (concat_retstr);
+
+	ret = asprintf(&post, "%s&hash=%s", safe_fields, hash);
+	SAFE_FREE (safe_fields);
 	SAFE_FREE (hash);
 	
 
@@ -389,6 +411,8 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 curl_error:
 	if (concat_str != NULL)
 		SAFE_FREE (concat_str);
+	if (concat_retstr != NULL)
+		SAFE_FREE (concat_retstr);
 	if (hash != NULL)
 		SAFE_FREE (hash);
 	if (fields != NULL)
@@ -405,20 +429,28 @@ curl_error_1:
 
 int check_rc(pam_url_opts opts)
 {
+	int len = strlen(opts.ret_code);
+	int retval;
+
 	if( NULL == recvbuf )
 	{
-		return PAM_AUTH_ERR;
+		retval = PAM_AUTH_ERR;
 	}
 
-	if( strlen(opts.ret_code) == recvbuf_size &&
-            0 == strncmp(opts.ret_code, recvbuf, recvbuf_size) )
+	if( len <= recvbuf_size && 0 == strncmp(opts.ret_code, recvbuf, len) )
 	{
-		return PAM_SUCCESS;
+		if (strncmp (recvbuf + len + 1, rethash, strlen(rethash)) == 0)
+			retval = PAM_SUCCESS;
+		else
+			retval = PAM_AUTH_ERR;
 	}
 	else
 	{
-		return PAM_AUTH_ERR;
+		retval = PAM_AUTH_ERR;
 	}
+	if (rethash != NULL)
+		SAFE_FREE (rethash);
+	return retval;
 }
 
 void cleanup(pam_url_opts* opts)

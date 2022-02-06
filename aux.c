@@ -8,6 +8,7 @@
 #include <sys/random.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -18,18 +19,27 @@
 
 char *get_random_string (void)
 {
-	struct timespec tv;
+	static bool _first_run = true;
+	struct timespec tv, tv2;
 	struct drand48_data buffer;
 	double result, result2;
 	char *randomstr = NULL;
 
 	if (clock_gettime (CLOCK_MONOTONIC, &tv) == -1)
 		return NULL;
-	
-	srand48_r (tv.tv_nsec, &buffer);
+
+	if (clock_gettime (CLOCK_PROCESS_CPUTIME_ID, &tv2) == -1)
+		return NULL;
+
+	if (_first_run) {
+		_first_run = false;
+		srand48_r (tv2.tv_nsec, &buffer);
+	}
 	drand48_r (&buffer, &result);
 	drand48_r (&buffer, &result2);
-	int ret = asprintf (&randomstr, "%lf%ld%ld%lf", result, tv.tv_sec, tv.tv_nsec, result2);
+	int ret = asprintf (&randomstr, "%lf%ld%ld%ld%ld%lf",
+				result, tv.tv_sec, tv.tv_nsec,
+				tv2.tv_sec, tv2.tv_nsec, result2);
 	if (ret == -1)
 		return NULL;
 	char * hashstr = sha256_string (randomstr);
@@ -99,7 +109,11 @@ char *file_get_contents (const char *const filename)
 int main (int argc, char *argv[])
 {
 	// printf ("%s", file_get_contents (argv[1]));
-	// printf ("%s\n", get_random_string ());
+	printf ("%s\n", get_random_string ());
+	printf ("%s\n", get_random_string ());
+	printf ("%s\n", get_random_string ());
+	
+	/*
 	char *fstr = NULL, *trimstr = NULL;
 	if (argc == 2) {
 	    printf ("'%s'", trimstr = trim (fstr = file_get_contents (argv[1])));
@@ -109,6 +123,7 @@ int main (int argc, char *argv[])
 	    fprintf (stderr, "Usage: %s file\n", argv[0], argv[1]);
 	    exit (1);
 	}
+	*/
 }
 
 #endif
