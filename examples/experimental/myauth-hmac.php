@@ -1,6 +1,7 @@
 <?php
 
 // mtodorov, 2022-01-22, Copyleft by GPLv2 or later.
+// v0.04 2022-02-06 added experimental hmac-sha256 authentication
 // v0.03 2022-01-26 enabled multiline comments
 // v0.02 2022-01-25 enaled mapping certs to usernames in pamlib-pkcs11 '->' and Paul Wouters' 'username@' notation
 // Based on the example from pam_url/examples/auth.php
