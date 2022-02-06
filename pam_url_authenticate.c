@@ -3,6 +3,8 @@
 
 #include "pam_url.h"
 
+extern char *recvbuf;
+
 PAM_EXTERN int pam_sm_setcred(pam_handle_t *pamh, int flags, int argc, const char **argv)
 { // by now, a dummy
 	return PAM_SUCCESS;
@@ -13,7 +15,6 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,
 {
 	pam_url_opts opts;
 	int ret = 0;
-	int len = 0;
 
 	if ( PAM_SUCCESS != pam_get_item(pamh, PAM_USER, &opts.user) )
 	{
@@ -26,6 +27,14 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,
 		ret++;
 		debug(pamh, "Could not get password item from pam.");
 	}
+
+	if ( PAM_SUCCESS != pam_get_item(pamh, PAM_RHOST, (const void **)&opts.clientIP) )
+	{
+		ret++;
+		debug(pamh, "Could not get PAM_RHOST from pam.");
+	} else
+		debug(pamh, "PAM_RHOST retrieved from pam.");
+		
 
 	if( PAM_SUCCESS != parse_opts(&opts, argc, argv, PAM_SM_AUTH) )
 	{
@@ -45,6 +54,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,
 			return PAM_AUTH_ERR;
 		}
 	}
+	debug(pamh, "TEMP: entering fetch_url()");
 
 	if( PAM_SUCCESS != fetch_url(pamh, opts) )
 	{
@@ -54,8 +64,12 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,
 
 	if( PAM_SUCCESS != check_rc(opts) )
 	{
+                char *debugmsg = NULL;
+                asprintf(&debugmsg, "Wrong Return Code: opts.ret_code=%s, recvbuf=%s", opts.ret_code, recvbuf);
+                debug(pamh, debugmsg);
+                free(debugmsg);
 		ret++;
-		debug(pamh, "Wrong Return Code.");
+		// debug(pamh, "Wrong Return Code.");
 	}
 
 	cleanup(&opts);

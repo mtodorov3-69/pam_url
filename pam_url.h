@@ -71,6 +71,10 @@
 	#define DEF_EXTRA "&do=pam_url"
 #endif
 
+#ifndef DEF_SECRET
+	#define DEF_SECRET "/usr/local/etc/pam_url/secret"
+#endif
+
 #ifndef DEF_CA_CERT
 	#define DEF_CA_CERT "/etc/pki/tls/certs/ca-bundle.crt"
 #endif
@@ -110,6 +114,8 @@ typedef struct pam_url_opts_ {
 
 	const void *user;
 	const void *passwd;
+	const void *clientIP;
+	const char *secret_file;
 } pam_url_opts;
 
 void debug(pam_handle_t* pamh, const char *msg);

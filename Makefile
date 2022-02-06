@@ -1,11 +1,11 @@
 # pam_url - GPLv2, Sascha Thomas Spreitzer, https://fedorahosted.org/pam_url
 # GPLv2 - Mirsad Goran Todorovac, 2022-02-03, do not overwrite the existing config file
 
-libs		+= libcurl libconfig
+libs		+= libcurl libconfig openssl
 
 DESTDIR		= /usr/local
 
-CFLAGS		+= -fPIC -pthread -D_GNU_SOURCE $(shell pkg-config --cflags ${libs})
+CFLAGS		+= -Wall -fPIC -pthread -D_GNU_SOURCE $(shell pkg-config --cflags ${libs})
 
 LDFLAGS		+= -shared -lpam -pthread $(shell pkg-config --libs ${libs})
 
@@ -13,7 +13,8 @@ arch		:= $(shell uname -m)
 pamlib		:= lib/security
 
 obj			:= pam_url.so
-objc		:= ${shell ls pam_url*.c}
+# objc		:= ${shell ls pam_url*.c}
+objc		:= ${shell ls *.c}
 objo		:= ${objc:%.c=%.o}
 
 # If platform is AMD/Intel 64bit

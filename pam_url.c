@@ -4,9 +4,12 @@
 //                                            validation).
 
 #include "pam_url.h"
+#include "aux.h"
 
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
+#include <errno.h>
 
 char* recvbuf = NULL;
 size_t recvbuf_size = 0;
@@ -22,7 +25,6 @@ int get_password(pam_handle_t* pamh, pam_url_opts* opts)
 {
 	char* p = NULL;
 	const char *prompt;
-	int prompt_len = 0;
 
 	if(config_lookup_string(&config, "pam_url.settings.prompt", &prompt) == CONFIG_FALSE)
 		prompt = DEF_PROMPT;
@@ -131,6 +133,8 @@ int parse_opts(pam_url_opts *opts, int argc, const char *argv[], int mode)
 	if(config_lookup_string(&config, "pam_url.settings.extradata", (const char **)&opts->extra_field) == CONFIG_FALSE)
 		opts->extra_field = DEF_EXTRA;
 	
+	if(config_lookup_string(&config, "pam_url.settings.secret", (const char **)&opts->secret_file) == CONFIG_FALSE)
+		opts->secret_file = DEF_SECRET;
 	
 	// SSL Options
 	if(config_lookup_string(&config, "pam_url.ssl.client_cert", &opts->ssl_cert) == CONFIG_FALSE)
@@ -149,7 +153,7 @@ int parse_opts(pam_url_opts *opts, int argc, const char *argv[], int mode)
 	
 	return PAM_SUCCESS;
 }
-
+	
 
 size_t curl_wf(void *ptr, size_t size, size_t nmemb, void *stream)
 {
@@ -197,6 +201,7 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 	CURL* eh = NULL;
 	char* post = NULL;
 	int ret = 0;
+	char* nonce = NULL;
 
 	if( NULL == opts.user )
 		opts.user = "";
@@ -221,7 +226,7 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 		{
 			char *combined = NULL;
 			debug(pamh, "Prepending previously used password.");
-			if( asprintf(&combined, "%s%s", opts.first_pass, opts.passwd) < 0 ||
+			if( asprintf(&combined, "%s%s", opts.first_pass, (const char *)opts.passwd) < 0 ||
 				combined == NULL )
 			{
 				free(combined);
@@ -243,18 +248,64 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 			goto curl_error_3;
 		}
 	} else {
+		debug(pamh, "Skipping password.");
 		safe_passwd = curl_easy_escape(eh, "", 0);
 	}
 	
-	ret = asprintf(&post, "%s=%s&%s=%s&mode=%s%s", opts.user_field,
+	char *concat_str = NULL;
+	char *fields = NULL;
+	char *secret = NULL, *hash = NULL;
+	char *trim_secret = NULL;
+
+	debug(pamh, "Getting a random string.");
+	nonce = get_random_string();
+	debug(pamh, "Got myself a nonce.");
+
+	int myerrno;
+	debug(pamh, opts.secret_file);
+	secret = file_get_contents (opts.secret_file);
+	if (secret == NULL)
+	{
+		myerrno = errno;
+		debug(pamh, "Failed the secret.");
+		debug(pamh, strerror (myerrno));
+		goto curl_error;
+	}
+	debug(pamh, "Read the secret.");
+	if((trim_secret = trim (secret)) != NULL)
+		debug(pamh, "Trimmed the secret.");
+	else
+		goto curl_error;
+	SAFE_FREE (secret);
+	ret = asprintf(&fields, "%s=%s&%s=%s&mode=%s&clientIP=%s&nonce=%s%s", opts.user_field,
 							safe_user,
 							opts.passwd_field,
 							safe_passwd,
 							opts.mode,
+							(const char *)opts.clientIP,
+							nonce,
 							opts.extra_field);
-	
 	curl_free(safe_passwd);	
 	curl_free(safe_user);
+	debug(pamh, "Wrote the POST fields.");
+	debug(pamh, fields);
+
+	if (ret == -1)
+		goto curl_error;
+
+	ret = asprintf(&concat_str, "%s%s", nonce, trim_secret);
+	SAFE_FREE (trim_secret);
+	SAFE_FREE (nonce);
+	if (ret == -1)
+		goto curl_error;
+
+	hash = sha256_string (concat_str);
+	SAFE_FREE (concat_str);
+
+	ret = asprintf(&post, "%s&hash=%s", fields, hash);
+	SAFE_FREE (fields);
+	SAFE_FREE (hash);
+	
 
 	if (ret == -1)
 		// If this happens, the contents of post are undefined, we could
@@ -336,8 +387,14 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 	return PAM_SUCCESS;
 
 curl_error:
+	if (concat_str != NULL)
+		SAFE_FREE (concat_str);
+	if (hash != NULL)
+		SAFE_FREE (hash);
+	if (fields != NULL)
+		SAFE_FREE (fields);
 	if (post != NULL)
-		free(post);
+		SAFE_FREE(post);
 curl_error_3:
 	curl_easy_cleanup(eh);
 curl_error_2:
@@ -348,8 +405,6 @@ curl_error_1:
 
 int check_rc(pam_url_opts opts)
 {
-	int ret=0;
-
 	if( NULL == recvbuf )
 	{
 		return PAM_AUTH_ERR;
