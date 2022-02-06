@@ -35,6 +35,10 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 		if ($sha256 !== $mysha256) {
 			$secret = "";
 			$ret = 401;
+		} else {
+			$rethash = hash("sha256", $nonce . $secret . $nonce);
+			$secret = "";
+			$ret = -1;
 		}
 	} else {
 		$ret = 402;
@@ -96,8 +100,6 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 	if( 0 == $ret )
 	{
 		header("HTTP/1.1 200 OK");
-		$rethash = hash("sha256", $nonce . $secret . $nonce);
-		$secret = "";
 		echo "OK $rethash";
 	}
 	else if ( $ret == 401 || $ret == 402 )
