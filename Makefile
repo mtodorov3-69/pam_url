@@ -28,6 +28,7 @@ endif
 PAM_URL=/usr/local/etc/pam_url
 MYAUTH=/usr/local/etc/myauth
 APACHE2_USER=www-data
+EXPERIMENTAL=/usr/local/experimental
 
 all: ${obj}
 
@@ -50,10 +51,10 @@ experimental:
 	mkdir -p ${MYAUTH} && chmod 700 ${MYAUTH} && touch ${MYAUTH}/secret && chmod 0400 ${MYAUTH}/secret \
 		echo "0" > ${MYAUTH}/serial && chown -R ${APACHE2_USER} ${MYAUTH}
 	openssl rand -base64 48 | tee ${PAM_URL}/secret > ${MYAUTH}/secret
-	install -D -m 500 /usr/local/experimental/lib/ ${obj}
+	install -D -m 500 ${EXPERIMENTAL}/lib/ ${obj}
 	install -m 511 examples/experimental/myauth-hmac.php /usr/lib/cgi-bin
-	install -D -m 644 examples/experimental/pam_url.conf /usr/local/experimental/etc
-	install -m 611 examples/experimental/pam_url_test /etc/pam.d
+	test -s ${EXPERIMENTAL}/etc/pam_url.conf || install -D -m 644 examples/experimental/pam_url.conf ${EXPERIMENTAL}/etc
+	install -m 644 examples/experimental/pam_url_test /etc/pam.d
 	mkdir /var/lib/pam_url
 
 reinit:
