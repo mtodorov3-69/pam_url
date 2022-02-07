@@ -1,6 +1,8 @@
 <?php
 
 // mtodorov, 2022-01-22, Copyleft by GPLv2 or later.
+// v0.07.01 2022-02-07 some security hardening
+// v0.07 2022-02-07 added unique request serial number protection.
 // v0.05 2022-02-06 added experimental hmac-sha256 challenge-response verification
 //                      against brute force replay attacks.
 // v0.04 2022-02-06 added experimental hmac-sha256 authentication
@@ -16,6 +18,8 @@
 
 // DO SOURCE IP REGION CHECKS HERE, OTHERWISE BRUTEFORCE attacks might occur!!
 
+$serial_file = "/usr/local/etc/myauth/serial";
+
 $ip_address = $_SERVER['REMOTE_ADDR'];
 $ip_srv_address = $_SERVER['SERVER_ADDR'];
 
@@ -30,29 +34,58 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 	$ret=-1;
 
 	$nonce = $_POST["nonce"];
+	$serial = $_POST["serial"];
 	$sha256 = $_POST["hash"];
 	if (($rawsecret = file_get_contents("/usr/local/etc/myauth/secret")) !== false) {
 		$secret = trim($rawsecret);
-		$mysha256 = hash("sha256", $nonce . $_POST["user"] . $_POST["pass"] . $_POST["mode"] . $_POST["clientIP"] . $secret . $nonce);
+		$mysha256 = hash("sha256", $nonce . $_POST["user"] . $_POST["pass"] . $_POST["mode"] . $_POST["clientIP"] . $_POST["serial"] . $secret . $nonce);
 		if ($sha256 !== $mysha256) {
 			$secret = "";
 			$ret = 401;
 		} else {
-			$rethash = hash("sha256", $nonce . $secret . $nonce);
+			$rethash = hash("sha256", $nonce . $serial . $secret . $nonce);
 			$secret = "";
-			$ret = -1;
+			$ret = 0;
 		}
 	} else {
 		$ret = 402;
+		$secret = "";
 	}
 
-	if ( $ret == -1 )
+	if ( $ret !== 0 ) {
+		header("HTTP/1.1 $ret Forbidden");
+		echo "HOST NOT PERMITTED";
+		exit(0);
+	}
+
+	if ( $ret == 0 && ($rawserial = file_get_contents($serial_file)) !== false) {
+		$myserial = trim($rawserial);
+		if ($myserial >= $serial)
+			$ret = 405;
+		else {
+			// remote serial is greater, we are going to the next stage
+			if (file_put_contents($serial_file, $serial) == false)
+				$ret = 406;
+			else
+				$ret = 0;
+		}
+	} else
+		$ret = 404;
+
+	if ( $ret !== 0 ) {
+		header("HTTP/1.1 $ret Forbidden");
+		echo "HOST NOT PERMITTED";
+		exit(0);
+	}
+
 	switch($_POST["mode"])
 	{
 		case "PAM_SM_AUTH";
 			// Perform authing here
 		case "PAM_SM_ACCOUNT";
 			// Perform account aging here
+
+			$ret = -1; // by default is no entry
 
 			$path = '/usr/local/etc/vpn-ikev2-authorized';
 
@@ -104,7 +137,7 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 		header("HTTP/1.1 200 OK");
 		echo "OK $rethash";
 	}
-	else if ( $ret == 401 || $ret == 402 )
+	else if ( $ret >= 400 )
 	{
 		header("HTTP/1.1 $ret Forbidden");
 		echo "HASH MISMATCH";

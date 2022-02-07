@@ -10,7 +10,11 @@
 
 extern char * file_get_contents (const char * const filename);
 extern char * trim (const char * const src);
-extern char * get_random_string ();
+extern bool isspace_str (const char * const src);
+extern char * get_random_string (void);
+extern char * get_serial (void);
+extern char * get_nonce_ctr (void);
+extern char * do_get_serial (const char * const serial_file, const char * const lock_file);
 
 #include <openssl/sha.h>
 

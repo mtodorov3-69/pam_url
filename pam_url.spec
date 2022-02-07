@@ -67,3 +67,6 @@ make DESTDIR=%{buildroot} install
 * Thu Feb 03 2022 Mirsad Goran Todorovac <mirsad.todorovac@alu.unizg.hr>
 - Added the skip-password option.
 
+* Mon Feb 07 2022 Mirsad Goran Todorovac <mirsad.todorovac@alu.unizg.hr>
+- Added hmac-sha256, nonces, challenge-response and serials.
+

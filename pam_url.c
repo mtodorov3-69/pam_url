@@ -224,6 +224,7 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 	const char *passwd = NULL;
 	char *safe_passwd = NULL;
 	char *combined = NULL;
+	char *serial = NULL;
 
 	if( !opts.skip_password ) {
 		if( opts.prepend_first_pass && NULL != opts.first_pass )
@@ -268,6 +269,9 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 	debug(pamh, "Getting a random string.");
 	nonce = get_random_string();
 	debug(pamh, "Got myself a nonce.");
+	// if ((serial = strdup ("17") /* get_serial()*/ ) == NULL)
+	if ((serial = get_serial()) == NULL)
+		debug(pamh, "Didn't get a serial.");
 
 	int myerrno;
 	debug(pamh, opts.secret_file);
@@ -286,13 +290,14 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 		goto curl_error;
 	SAFE_FREE (secret);
 
-	ret = asprintf(&safe_fields, "%s=%s&%s=%s&mode=%s&clientIP=%s&nonce=%s%s", opts.user_field,
+	ret = asprintf(&safe_fields, "%s=%s&%s=%s&mode=%s&clientIP=%s&nonce=%s&serial=%s%s", opts.user_field,
 							safe_user,
 							opts.passwd_field,
 							safe_passwd,
 							opts.mode,
 							(const char *)opts.clientIP,
 							nonce,
+							serial,
 							opts.extra_field);
 	curl_free(safe_passwd);	
 	curl_free(safe_user);
@@ -302,19 +307,21 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 	if (ret == -1)
 		goto curl_error;
 
-	ret = asprintf(&fields, "%s%s%s%s", (const char *)opts.user,
+	ret = asprintf(&fields, "%s%s%s%s%s", (const char *)opts.user,
 						passwd,
 						opts.mode,
-						(const char *)opts.clientIP);
+						(const char *)opts.clientIP,
+						serial);
 	SAFE_FREE (combined);
 	if (ret == -1)
 		goto curl_error;
 
 	ret = asprintf(&concat_str, "%s%s%s%s", nonce, fields, trim_secret, nonce);
-	ret2 = asprintf(&concat_retstr, "%s%s%s", nonce, trim_secret, nonce);
+	ret2 = asprintf(&concat_retstr, "%s%s%s%s", nonce, serial, trim_secret, nonce);
 	SAFE_FREE (fields);
 	SAFE_FREE (trim_secret);
 	SAFE_FREE (nonce);
+	SAFE_FREE (serial);
 	if (ret == -1 || ret2 == -1 || concat_str == NULL || concat_retstr == NULL)
 		goto curl_error;
 
@@ -323,8 +330,11 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 
 	rethash = sha256_string (concat_retstr);
 	SAFE_FREE (concat_retstr);
+	fprintf (stderr, "rethash = %s\n", rethash);
 
-	ret = asprintf(&post, "%s&hash=%s", safe_fields, hash);
+	if (pam_url_debug)
+		ret = asprintf(&post, "%s&hash=%s", safe_fields, hash);
+
 	SAFE_FREE (safe_fields);
 	SAFE_FREE (hash);
 	

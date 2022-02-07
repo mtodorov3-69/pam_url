@@ -25,6 +25,10 @@ ifeq (${arch},ppc64)
 pamlib := lib64/security
 endif
 
+PAM_URL=/usr/local/etc/pam_url
+MYAUTH=/usr/local/etc/myauth
+APACHE2_USER=www-data
+
 all: ${obj}
 
 debug:
@@ -39,6 +43,21 @@ clean:
 install:
 	install -D -m 755 ${obj} ${DESTDIR}/${pamlib}/${obj}
 	test -s ${DESTDIR}/etc/pam_url.conf || install -D -m 644 examples/pam_url.conf ${DESTDIR}/etc/pam_url.conf
+
+experimental:
+	umask 077
+	mkdir -p ${PAM_URL} && touch ${PAM_URL}/secret && chmod 0400 ${PAM_URL}/secret
+	mkdir -p ${MYAUTH} && chmod 700 ${MYAUTH} && touch ${MYAUTH}/secret && chmod 0400 ${MYAUTH}/secret \
+		echo "0" > ${MYAUTH}/serial && chown -R ${APACHE2_USER} ${MYAUTH}
+	openssl rand -base64 48 | tee ${PAM_URL}/secret > ${MYAUTH}/secret
+	install -D -m 500 /usr/local/experimental/lib/ ${obj}
+	install -m 511 examples/experimental/myauth-hmac.php /usr/lib/cgi-bin
+	install -D -m 644 examples/experimental/pam_url.conf /usr/local/experimental/etc
+	install -m 611 examples/experimental/pam_url_test /etc/pam.d
+	mkdir /var/lib/pam_url
+
+reinit:
+	echo "0" > /var/lib/pam_url/serial && echo "0" > /var/lib/pam_url/nonce_ctr
 
 uninstall:
 	rm -f ${DESTDIR}/${pamlib}/${obj}
