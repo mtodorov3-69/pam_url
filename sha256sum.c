@@ -137,6 +137,42 @@ char * sha256sum_fmt (const char * const fmt, ...)
 	return sha256_string (buf);
 }
 
+char * sha384sum_fmt (const char * const fmt, ...)
+{
+	int ret = 0;
+	va_list argp;
+	char * buf = NULL;
+
+	va_start (argp, fmt);
+	ret = vasprintf (&buf, fmt, argp);
+	va_end (argp);
+
+	if (ret == -1) {
+		if (buf)
+			free (buf);
+		return NULL;
+	}
+	return sha384_string (buf);
+}
+
+char * sha512sum_fmt (const char * const fmt, ...)
+{
+	int ret = 0;
+	va_list argp;
+	char * buf = NULL;
+
+	va_start (argp, fmt);
+	ret = vasprintf (&buf, fmt, argp);
+	va_end (argp);
+
+	if (ret == -1) {
+		if (buf)
+			free (buf);
+		return NULL;
+	}
+	return sha512_string (buf);
+}
+
 char * hashsum (const char * const alg, const char * const str)
 {
 	     if (strcmp (alg, "sha256") == 0)
