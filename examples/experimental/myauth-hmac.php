@@ -35,17 +35,29 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 
 	$nonce = $_POST["nonce"];
 	$serial = $_POST["serial"];
-	$sha512 = $_POST["hash"];
+	$hash = $_POST["hash"];
 	if (($rawsecret = file_get_contents("/usr/local/etc/myauth/secret")) !== false) {
 		$secret = trim($rawsecret);
-		$mysha512 = hash("sha512", $nonce . $_POST["user"] . $_POST["pass"] . $_POST["mode"] . $_POST["clientIP"] . $_POST["serial"] . $secret . $nonce);
-		if ($sha512 !== $mysha512) {
-			$secret = "";
-			$ret = 401;
-		} else {
-			$rethash = hash("sha512", $nonce . $serial . $secret . $nonce);
-			$secret = "";
-			$ret = 0;
+		$concatstr = $nonce . $_POST["user"] . $_POST["pass"] . $_POST["mode"] . $_POST["clientIP"] . $_POST["serial"] . $secret . $nonce;
+		if (strlen($concatstr) > 4096)
+			$ret = 407;
+		else {
+			$myhash = hash("sha512", $concatstr);
+			$concatstr = "";
+			if ($hash !== $myhash) {
+				$secret = "";
+				$ret = 401;
+			} else {
+				$concatstr = $nonce . $serial . $secret . $nonce;
+				if (strlen ($concatstr) > 4096)
+					$ret = 407;
+				else {
+					$rethash = hash("sha512", $nonce . $serial . $secret . $nonce);
+					$concatstr = "";
+					$secret = "";
+					$ret = 0;
+				}
+			}
 		}
 	} else {
 		$ret = 402;
@@ -54,7 +66,7 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 
 	if ( $ret !== 0 ) {
 		header("HTTP/1.1 $ret Forbidden");
-		echo "HOST NOT PERMITTED";
+		echo "ACCESS DENIED";
 		exit(0);
 	}
 
