@@ -118,7 +118,7 @@ typedef struct pam_url_opts_ {
 	const char *secret_file;
 } pam_url_opts;
 
-void debug(pam_handle_t* pamh, const char *msg);
+void debug(pam_handle_t* pamh, const char *fmt, ...);
 int get_password(pam_handle_t* pamh, pam_url_opts* opts);
 int parse_opts(pam_url_opts* opts, int argc, const char** argv, int mode);
 int fetch_url(pam_handle_t *pamh, pam_url_opts opts);

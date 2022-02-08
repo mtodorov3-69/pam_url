@@ -3,9 +3,9 @@
 // mtodorov, 2022-01-22, Copyleft by GPLv2 or later.
 // v0.07.01 2022-02-07 some security hardening
 // v0.07 2022-02-07 added unique request serial number protection.
-// v0.05 2022-02-06 added experimental hmac-sha256 challenge-response verification
+// v0.05 2022-02-06 added experimental hmac-sha512 challenge-response verification
 //                      against brute force replay attacks.
-// v0.04 2022-02-06 added experimental hmac-sha256 authentication
+// v0.04 2022-02-06 added experimental hmac-sha512 authentication
 // v0.03 2022-01-26 enabled multiline comments
 // v0.02 2022-01-25 enaled mapping certs to usernames in pamlib-pkcs11 '->' and Paul Wouters' 'username@' notation
 // Based on the example from pam_url/examples/auth.php
@@ -35,15 +35,15 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 
 	$nonce = $_POST["nonce"];
 	$serial = $_POST["serial"];
-	$sha256 = $_POST["hash"];
+	$sha512 = $_POST["hash"];
 	if (($rawsecret = file_get_contents("/usr/local/etc/myauth/secret")) !== false) {
 		$secret = trim($rawsecret);
-		$mysha256 = hash("sha256", $nonce . $_POST["user"] . $_POST["pass"] . $_POST["mode"] . $_POST["clientIP"] . $_POST["serial"] . $secret . $nonce);
-		if ($sha256 !== $mysha256) {
+		$mysha512 = hash("sha512", $nonce . $_POST["user"] . $_POST["pass"] . $_POST["mode"] . $_POST["clientIP"] . $_POST["serial"] . $secret . $nonce);
+		if ($sha512 !== $mysha512) {
 			$secret = "";
 			$ret = 401;
 		} else {
-			$rethash = hash("sha256", $nonce . $serial . $secret . $nonce);
+			$rethash = hash("sha512", $nonce . $serial . $secret . $nonce);
 			$secret = "";
 			$ret = 0;
 		}

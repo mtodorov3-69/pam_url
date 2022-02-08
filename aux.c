@@ -3,6 +3,10 @@
  *
  */
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/random.h>
@@ -25,10 +29,6 @@
 #define SERIAL_FILE "/var/lib/pam_url/serial"
 #define INITVAL 1
 #define BUFSIZE 4096
-
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
 
 #ifdef DEBUG
 bool get_serial_debug = true;
@@ -134,12 +134,11 @@ char * get_nonce_ctr (void)
 char *get_random_string (void)
 {
 	static bool _first_run = true;
-	struct timespec tv, tv2;
 	static struct drand48_data buffer;
+	struct timespec tv, tv2;
 	double result, result2;
-	char *randomstr = NULL;
-	char *nonce_ctr = get_nonce_ctr();
 	char * retval = NULL;
+	char *nonce_ctr = get_nonce_ctr();
 
 	if (nonce_ctr == NULL)
 		goto get_random_exit2;
@@ -157,18 +156,13 @@ char *get_random_string (void)
 	drand48_r (&buffer, &result);
 	drand48_r (&buffer, &result2);
 
-	int ret = asprintf (&randomstr, "%lf:%ld:%ld:%ld:%ld:%d:%lf:%s",
+	retval = sha256sum_fmt ("%lf:%ld:%ld:%ld:%ld:%d:%lf:%s",
 				result, tv.tv_sec, tv.tv_nsec,
 				tv2.tv_sec, tv2.tv_nsec, getpid(), result2, nonce_ctr);
 
-	if (ret != -1 && randomstr != NULL)
-		retval = sha256_string (randomstr);
-
 	if (get_serial_debug)
-		fprintf (stderr, "randomstr = %s\n", randomstr);
+		fprintf (stderr, "retval = %s\n", retval);
 
-	if (randomstr != NULL)
-		free (randomstr);
 get_random_exit:
 	if (nonce_ctr != NULL)
 		free (nonce_ctr);

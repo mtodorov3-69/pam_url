@@ -7,6 +7,7 @@
 #include "aux.h"
 
 #include <stdio.h>
+#include <stdarg.h>
 #include <stdint.h>
 #include <string.h>
 #include <errno.h>
@@ -16,9 +17,14 @@ size_t recvbuf_size = 0;
 static config_t config;
 bool  pam_url_debug = false;
 
-void debug(pam_handle_t* pamh, const char *msg)
+void debug(pam_handle_t* pamh, const char *fmt, ...)
 {
-	pam_syslog(pamh, LOG_ERR, "%s", msg);
+	va_list ap;
+
+	va_start(ap, fmt);
+	pam_vsyslog(pamh, LOG_ERR, fmt, ap);
+	va_end(ap);
+	// pam_syslog(pamh, LOG_ERR, "%s", msg);
 }
 
 int get_password(pam_handle_t* pamh, pam_url_opts* opts)
@@ -202,8 +208,14 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 {
 	CURL* eh = NULL;
 	char* post = NULL;
-	int ret = 0, ret2 = 0;
-	char* nonce = NULL;
+	int ret = 0;
+	char* nonce = NULL, *serial = NULL;
+
+	char *passwd = NULL, *safe_passwd = NULL, *combined = NULL;
+
+	char *urlsafe_fields = NULL, *hmac_fields = NULL;
+	char *secret = NULL, *trim_secret = NULL;
+	char *hash = NULL;
 
 	if( NULL == opts.user )
 		opts.user = "";
@@ -220,11 +232,14 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 	char *safe_user = curl_easy_escape(eh, opts.user, 0);
 	if( safe_user == NULL )
 		goto curl_error_3;
-	
-	const char *passwd = NULL;
-	char *safe_passwd = NULL;
-	char *combined = NULL;
-	char *serial = NULL;
+
+	debug(pamh, "Getting a random string.");
+	if ((nonce = get_random_string()) == NULL)
+		debug(pamh, "Didn't get myself a nonce.");
+	if ((serial = get_serial()) == NULL)
+		debug(pamh, "Didn't get a serial.");
+	if (nonce == NULL || serial == NULL)
+		goto curl_error;
 
 	if( !opts.skip_password ) {
 		if( opts.prepend_first_pass && NULL != opts.first_pass )
@@ -233,64 +248,34 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 			if( asprintf(&combined, "%s%s", opts.first_pass, (const char *)opts.passwd) < 0 ||
 				combined == NULL )
 			{
-				free(combined);
+				SAFE_FREE(combined);
 				debug(pamh, "Out of memory");
 				curl_free(safe_user);
-				goto curl_error_3;
+				goto curl_error;
 			}
 
-			passwd = combined;
+			passwd = strdup (combined);
 			safe_passwd = curl_easy_escape(eh, combined, 0);
 		}
 		else
 		{
-			passwd = opts.passwd;
+			passwd = strdup (opts.passwd);
 			safe_passwd = curl_easy_escape(eh, opts.passwd, 0);
 		}
 
 		if( safe_passwd == NULL ) {
 			SAFE_FREE(combined);
 			curl_free(safe_user);
-			goto curl_error_3;
+			goto curl_error;
 		}
 	} else {
 		debug(pamh, "Skipping password.");
-		passwd = "";
+		passwd = strdup ("");
 		safe_passwd = curl_easy_escape(eh, "", 0);
 	}
-	
-	char *concat_str = NULL;
-	char *concat_retstr = NULL;
-	char *fields = NULL;
-	char *safe_fields = NULL;
-	char *secret = NULL, *hash = NULL;
-	char *trim_secret = NULL;
+	SAFE_FREE (combined);
 
-	debug(pamh, "Getting a random string.");
-	nonce = get_random_string();
-	debug(pamh, "Got myself a nonce.");
-	// if ((serial = strdup ("17") /* get_serial()*/ ) == NULL)
-	if ((serial = get_serial()) == NULL)
-		debug(pamh, "Didn't get a serial.");
-
-	int myerrno;
-	debug(pamh, opts.secret_file);
-	secret = file_get_contents (opts.secret_file);
-	if (secret == NULL)
-	{
-		myerrno = errno;
-		debug(pamh, "Failed the secret.");
-		debug(pamh, strerror (myerrno));
-		goto curl_error;
-	}
-	debug(pamh, "Read the secret.");
-	if((trim_secret = trim (secret)) != NULL)
-		debug(pamh, "Trimmed the secret.");
-	else
-		goto curl_error;
-	SAFE_FREE (secret);
-
-	ret = asprintf(&safe_fields, "%s=%s&%s=%s&mode=%s&clientIP=%s&nonce=%s&serial=%s%s", opts.user_field,
+	ret = asprintf(&urlsafe_fields, "%s=%s&%s=%s&mode=%s&clientIP=%s&nonce=%s&serial=%s%s", opts.user_field,
 							safe_user,
 							opts.passwd_field,
 							safe_passwd,
@@ -301,48 +286,59 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 							opts.extra_field);
 	curl_free(safe_passwd);	
 	curl_free(safe_user);
-	debug(pamh, "Wrote the POST fields.");
-	debug(pamh, fields);
-
-	if (ret == -1)
-		goto curl_error;
-
-	ret = asprintf(&fields, "%s%s%s%s%s", (const char *)opts.user,
-						passwd,
-						opts.mode,
-						(const char *)opts.clientIP,
-						serial);
-	SAFE_FREE (combined);
-	if (ret == -1)
-		goto curl_error;
-
-	ret = asprintf(&concat_str, "%s%s%s%s", nonce, fields, trim_secret, nonce);
-	ret2 = asprintf(&concat_retstr, "%s%s%s%s", nonce, serial, trim_secret, nonce);
-	SAFE_FREE (fields);
-	SAFE_FREE (trim_secret);
-	SAFE_FREE (nonce);
-	SAFE_FREE (serial);
-	if (ret == -1 || ret2 == -1 || concat_str == NULL || concat_retstr == NULL)
-		goto curl_error;
-
-	hash = sha256_string (concat_str);
-	SAFE_FREE (concat_str);
-
-	rethash = sha256_string (concat_retstr);
-	SAFE_FREE (concat_retstr);
-	fprintf (stderr, "rethash = %s\n", rethash);
-
-	if (pam_url_debug)
-		ret = asprintf(&post, "%s&hash=%s", safe_fields, hash);
-
-	SAFE_FREE (safe_fields);
-	SAFE_FREE (hash);
-	
+	debug(pamh, "Wrote the POST fields: %s.", urlsafe_fields);
 
 	if (ret == -1)
 		// If this happens, the contents of post are undefined, we could
 		// end up freeing an uninitialized pointer, which could crash (but
 		// should not have security implications in this context).
+		goto curl_error;
+
+	ret = asprintf(&hmac_fields, "%s%s%s%s%s", (const char *)opts.user,
+						passwd,
+						opts.mode,
+						(const char *)opts.clientIP,
+						serial);
+	SAFE_FREE (passwd);
+	if (ret == -1)
+		goto curl_error;
+
+	debug(pamh, "secrets=%s", opts.secret_file);
+	if ((secret = file_get_contents (opts.secret_file)) == NULL)
+	{
+		debug(pamh, "Failed the secret: %s", strerror (errno));
+		goto curl_error;
+	}
+	debug(pamh, "Read the secret. Not logging it.");
+	trim_secret = trim (secret);
+	SAFE_FREE (secret);  // Keep secret in memory as little as possible
+
+	if (trim_secret == NULL)
+		goto curl_error;
+	else
+		debug(pamh, "Trimmed the secret.");
+
+	bool success = false;
+
+	success =  (hash    = hashsum_fmt("sha512", "%s%s%s%s", nonce, hmac_fields, trim_secret, nonce)) &&
+		   (rethash = hashsum_fmt("sha512", "%s%s%s%s", nonce, serial, trim_secret, nonce));
+
+	SAFE_FREE (trim_secret);  // Keep secret in memory as little as possible
+	SAFE_FREE (nonce);
+	SAFE_FREE (hmac_fields);
+	SAFE_FREE (serial);
+
+	if (!success)
+		goto curl_error_4;
+
+	debug (pamh, "rethash = %s", rethash);
+
+	ret = asprintf(&post, "%s&hash=%s", urlsafe_fields, hash);
+
+	SAFE_FREE (urlsafe_fields);
+	SAFE_FREE (hash);
+
+	if (ret == -1)
 		goto curl_error;
 
 	if( 1 == pam_url_debug)
@@ -413,22 +409,31 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 		goto curl_error;
 
 	// No errors
-	free(post);
+	SAFE_FREE (post);
 	curl_easy_cleanup(eh);
 	curl_global_cleanup();
 	return PAM_SUCCESS;
 
 curl_error:
-	if (concat_str != NULL)
-		SAFE_FREE (concat_str);
-	if (concat_retstr != NULL)
-		SAFE_FREE (concat_retstr);
-	if (hash != NULL)
-		SAFE_FREE (hash);
-	if (fields != NULL)
-		SAFE_FREE (fields);
+	debug(pamh, "curl_error: freeing memory");
+	if (passwd != NULL)
+		SAFE_FREE (passwd);
+	if (nonce != NULL)
+		SAFE_FREE (nonce);
+	if (serial != NULL)
+		SAFE_FREE (serial);
+	if (hmac_fields != NULL)
+		SAFE_FREE (hmac_fields);
 	if (post != NULL)
 		SAFE_FREE(post);
+curl_error_4:
+	debug(pamh, "curl_error_4: freeing memory");
+	if (urlsafe_fields != NULL)
+		SAFE_FREE (urlsafe_fields);
+	if (hash != NULL)
+		SAFE_FREE (hash);
+	if (rethash != NULL)
+		SAFE_FREE (rethash);
 curl_error_3:
 	curl_easy_cleanup(eh);
 curl_error_2:

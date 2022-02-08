@@ -64,10 +64,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,
 
 	if( PAM_SUCCESS != check_rc(opts) )
 	{
-                char *debugmsg = NULL;
-                asprintf(&debugmsg, "Wrong Return Code: opts.ret_code=%s, recvbuf=%s", opts.ret_code, recvbuf);
-                debug(pamh, debugmsg);
-                free(debugmsg);
+                debug(pamh, "Wrong Return Code: opts.ret_code=%s, recvbuf=%s", opts.ret_code, recvbuf);
 		ret++;
 		// debug(pamh, "Wrong Return Code.");
 	}

@@ -35,7 +35,7 @@ all: ${obj}
 debug:
 	CFLAGS="-g3 -O0" ${MAKE} all
 
-${obj}: ${objo}
+${obj}: ${objo} aux.h
 	${CC} ${objo} ${LDFLAGS} -o ${obj}
 
 clean:
@@ -59,6 +59,9 @@ experimental:
 
 reinit:
 	echo "0" > /var/lib/pam_url/serial && echo "0" > /var/lib/pam_url/nonce_ctr
+
+secret:
+	openssl rand -base64 48 | tee ${PAM_URL}/secret > ${MYAUTH}/secret
 
 uninstall:
 	rm -f ${DESTDIR}/${pamlib}/${obj}
