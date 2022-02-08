@@ -250,8 +250,7 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 			{
 				SAFE_FREE(combined);
 				debug(pamh, "Out of memory");
-				curl_free(safe_user);
-				goto curl_error;
+				goto curl_error_5;
 			}
 
 			passwd = strdup (combined);
@@ -265,8 +264,7 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 
 		if( safe_passwd == NULL ) {
 			SAFE_FREE(combined);
-			curl_free(safe_user);
-			goto curl_error;
+			goto curl_error_5;
 		}
 	} else {
 		debug(pamh, "Skipping password.");
@@ -275,15 +273,15 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 	}
 	SAFE_FREE (combined);
 
-	ret = asprintf(&urlsafe_fields, "%s=%s&%s=%s&mode=%s&clientIP=%s&nonce=%s&serial=%s%s", opts.user_field,
+	ret = asprintf(&urlsafe_fields, "%s=%s&%s=%s&mode=%s&clientIP=%s&nonce=%s&serial=%s", opts.user_field,
 							safe_user,
 							opts.passwd_field,
 							safe_passwd,
 							opts.mode,
 							(const char *)opts.clientIP,
 							nonce,
-							serial,
-							opts.extra_field);
+							serial/*,
+							opts.extra_field*/);
 	curl_free(safe_passwd);	
 	curl_free(safe_user);
 	debug(pamh, "Wrote the POST fields: %s.", urlsafe_fields);
@@ -414,6 +412,8 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 	curl_global_cleanup();
 	return PAM_SUCCESS;
 
+curl_error_5:
+	curl_free(safe_user);
 curl_error:
 	debug(pamh, "curl_error: freeing memory");
 	if (passwd != NULL)

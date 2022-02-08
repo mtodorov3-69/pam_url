@@ -1,6 +1,7 @@
 <?php
 
 // mtodorov, 2022-01-22, Copyleft by GPLv2 or later.
+// v0.07.02 2022-02-08 support for sha512, prevent brute force on hash functions
 // v0.07.01 2022-02-07 some security hardening
 // v0.07 2022-02-07 added unique request serial number protection.
 // v0.05 2022-02-06 added experimental hmac-sha512 challenge-response verification
@@ -18,16 +19,24 @@
 
 // DO SOURCE IP REGION CHECKS HERE, OTHERWISE BRUTEFORCE attacks might occur!!
 
-$serial_file = "/usr/local/etc/myauth/serial";
-
 $ip_address = $_SERVER['REMOTE_ADDR'];
 $ip_srv_address = $_SERVER['SERVER_ADDR'];
+
+if ( $_SERVER['CONTENT_LENGTH'] > 4096 )
+{
+	// This was most likely a brute force attack.
+	header("HTTP/1.1 403 Forbidden");
+	echo "ACCESS DENIED";
+	error_log("ALERT: Request size overflow from host $ip_address");
+	exit(7);
+}
 
 if ( $ip_address !== $ip_srv_address )
 {
 	header("HTTP/1.1 403 Forbidden");
 	echo "HOST NOT PERMITTED";
-	exit(0);
+	error_log("Access denied from host $ip_address");
+	exit(7);
 }
 else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"]) )
 {
@@ -36,16 +45,19 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 	$nonce = $_POST["nonce"];
 	$serial = $_POST["serial"];
 	$hash = $_POST["hash"];
-	if (($rawsecret = file_get_contents("/usr/local/etc/myauth/secret")) !== false) {
+	if (strlen($nonce) > 1024 || strlen($serial) > 100 || strlen($hash) > 1024 || strlen($_POST["user"]) > 128
+				  || strlen($_POST["pass"]) > 1024 || strlen($_POST["clientIP"]) > 32)
+		$ret = 407;
+	else if (($rawsecret = file_get_contents("/usr/local/etc/myauth/secret")) !== false) {
 		$secret = trim($rawsecret);
-		$concatstr = $nonce . $_POST["user"] . $_POST["pass"] . $_POST["mode"] . $_POST["clientIP"] . $_POST["serial"] . $secret . $nonce;
+		$concatstr = $nonce . $_POST["user"] . $_POST["pass"] . $_POST["mode"] . $_POST["clientIP"] . $serial . $secret . $nonce;
 		if (strlen($concatstr) > 4096)
 			$ret = 407;
 		else {
 			$myhash = hash("sha512", $concatstr);
 			$concatstr = "";
 			if ($hash !== $myhash) {
-				$secret = "";
+				$secret = ""; // forget secret as soon as we no longer need it
 				$ret = 401;
 			} else {
 				$concatstr = $nonce . $serial . $secret . $nonce;
@@ -54,7 +66,7 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 				else {
 					$rethash = hash("sha512", $nonce . $serial . $secret . $nonce);
 					$concatstr = "";
-					$secret = "";
+					$secret = ""; // forget secret as soon as we no longer need it
 					$ret = 0;
 				}
 			}
@@ -66,9 +78,12 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 
 	if ( $ret !== 0 ) {
 		header("HTTP/1.1 $ret Forbidden");
+		error_log("ALERT: Counterfeit request: Bad hash in request from $ip_address");
 		echo "ACCESS DENIED";
-		exit(0);
+		exit(7);
 	}
+
+	$serial_file = "/usr/local/etc/myauth/serial";
 
 	if ( $ret == 0 && ($rawserial = file_get_contents($serial_file)) !== false) {
 		$myserial = trim($rawserial);
@@ -86,8 +101,9 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 
 	if ( $ret !== 0 ) {
 		header("HTTP/1.1 $ret Forbidden");
+		error_log("ALERT: Possible replay attack: Bad serial in request from $ip_address");
 		echo "HOST NOT PERMITTED";
-		exit(0);
+		exit(7);
 	}
 
 	switch($_POST["mode"])
@@ -147,22 +163,26 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 	if( 0 == $ret )
 	{
 		header("HTTP/1.1 200 OK");
+		error_log("Access granted to ${_POST['user']} in request from $ip_address");
 		echo "OK $rethash";
 	}
 	else if ( $ret >= 400 )
 	{
 		header("HTTP/1.1 $ret Forbidden");
-		echo "HASH MISMATCH";
+		error_log("Access denied to ${_POST['user']} in request from $ip_address");
+		echo "ACCESS DENIED";
 	}
 	else
 	{
 		header("HTTP/1.1 403 Forbidden");
+		error_log("Access denied to ${_POST['user']} in request from $ip_address");
 		echo "ACCESS DENIED";
 	}
 }
 else
 {
 	header("HTTP/1.1 400 Bad Request");
+	error_log("ALERT: Access denied in request from $ip_address");
 	echo "ACCESS DENIED";
 }
 ?>

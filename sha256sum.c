@@ -237,11 +237,13 @@ int main(int argc, char **argv)
 	char calc_hash[SHA256_STRLEN+1];
 
 	for (int i = 0; i < 10000; i++) {
-		char *s1 = get_random_string ();
-		char *s2 = get_random_string ();
-		char *s3 = get_random_string ();
-		char *s4 = get_random_string ();
+		char *s1, *s2, *s3, *s4;
 		char *buf = NULL, *hash1 = NULL, *hash2 = NULL;
+		s1 = get_random_string ();
+		s2 = get_random_string ();
+		s3 = get_random_string ();
+		s4 = get_random_string ();
+		buf = NULL, hash1 = NULL, hash2 = NULL;
 		asprintf (&buf, "%s%s%s%s", s1, s2, s3, s4);
 		hash1 = sha256_string (buf);
 		free (buf);
@@ -250,11 +252,12 @@ int main(int argc, char **argv)
 	}
 
 	for (int i = 0; i < 10000; i++) {
-		char *s1 = get_random_string ();
-		char *s2 = get_random_string ();
-		char *s3 = get_random_string ();
-		char *s4 = get_random_string ();
+		char *s1, *s2, *s3, *s4;
 		char *buf = NULL, *hash1 = NULL, *hash2 = NULL;
+		s1 = get_random_string ();
+		s2 = get_random_string ();
+		s3 = get_random_string ();
+		s4 = get_random_string ();
 		asprintf (&buf, "%s%s%s%s", s1, s2, s3, s4);
 		hash1 = sha384_string (buf);
 		free (buf);
@@ -263,11 +266,12 @@ int main(int argc, char **argv)
 	}
 
 	for (int i = 0; i < 10000; i++) {
-		char *s1 = get_random_string ();
-		char *s2 = get_random_string ();
-		char *s3 = get_random_string ();
-		char *s4 = get_random_string ();
+		char *s1, *s2, *s3, *s4;
 		char *buf = NULL, *hash1 = NULL, *hash2 = NULL;
+		s1 = get_random_string ();
+		s2 = get_random_string ();
+		s3 = get_random_string ();
+		s4 = get_random_string ();
 		asprintf (&buf, "%s%s%s%s", s1, s2, s3, s4);
 		hash1 = sha512_string (buf);
 		free (buf);
