@@ -46,7 +46,7 @@ if ( $ip_address !== $ip_srv_address )
 {
 	header("HTTP/1.1 403 Forbidden");
 	echo "HOST NOT PERMITTED";
-	error_log("Access denied from host $ip_address");
+	error_log("001: Access denied from host $ip_address on $ip_srv_address");
 	exit(7);
 }
 else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"]) )
@@ -174,26 +174,26 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 	if( 0 == $ret )
 	{
 		header("HTTP/1.1 200 OK");
-		error_log("Access granted to ${_POST['user']} in request from $ip_address");
+		error_log("002: Access granted to ${_POST['user']} in request from $ip_address");
 		echo "OK $rethash";
 	}
 	else if ( $ret >= 400 )
 	{
 		header("HTTP/1.1 $ret Forbidden");
-		error_log("Access denied to ${_POST['user']} in request from $ip_address");
+		error_log("003: Access denied to ${_POST['user']} in request from $ip_address");
 		echo "ACCESS DENIED";
 	}
 	else
 	{
 		header("HTTP/1.1 403 Forbidden");
-		error_log("Access denied to ${_POST['user']} in request from $ip_address");
+		error_log("004: Access denied to ${_POST['user']} in request from $ip_address");
 		echo "ACCESS DENIED";
 	}
 }
 else
 {
 	header("HTTP/1.1 400 Bad Request");
-	error_log("ALERT: Access denied in request from $ip_address");
+	error_log("ALERT: 005: Access denied in request from $ip_address");
 	echo "ACCESS DENIED";
 }
 ?>
