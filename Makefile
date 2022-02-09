@@ -54,9 +54,16 @@ experimental:
 	mkdir -p ${EXPERIMENTAL}/etc ${EXPERIMENTAL}/lib
 	install -D -m 500 ${obj} ${EXPERIMENTAL}/lib/
 	install -m 511 examples/experimental/myauth-hmac.php /usr/lib/cgi-bin
-	test -s ${EXPERIMENTAL}/etc/pam_url.conf || install -D -m 644 examples/experimental/pam_url.conf ${EXPERIMENTAL}/etc
+	umask 022
+	test -s ${EXPERIMENTAL}/etc/pam_url.conf || sed 's/example.domain.hr/`hostname`/g' < examples/experimental/pam_url.conf > ${EXPERIMENTAL}/etc/pam_url.conf
 	install -m 644 examples/experimental/pam_url_test /etc/pam.d
 	mkdir /var/lib/pam_url
+	test -s /usr/local/etc/vpn-ikev2-authorized || cp -p examples/experimental/vpn-ikev2-authorized /usr/local/etc/vpn-ikev2-authorized
+
+test:
+	test -x /usr/bin/pamtester || echo "run apt-get install pamtester" && exit
+	pamtester -v test 'CN=tablet-johnnybravo.alu.hr, O=ALU-UNIZG' authenticate
+	pamtester -v test 'CN=tablet-unknown.alu.hr, O=ALU-UNIZG' authenticate
 
 reinit:
 	echo "0" > /var/lib/pam_url/serial && echo "0" > /var/lib/pam_url/nonce_ctr
