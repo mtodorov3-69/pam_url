@@ -49,7 +49,7 @@ experimental:
 	umask 077
 	mkdir -p ${PAM_URL} && touch ${PAM_URL}/secret && chmod 0400 ${PAM_URL}/secret
 	mkdir -p ${MYAUTH} && chmod 700 ${MYAUTH} && touch ${MYAUTH}/secret && chmod 0400 ${MYAUTH}/secret \
-		echo "0" > ${MYAUTH}/serial && chown -R ${APACHE2_USER} ${MYAUTH}
+		&& echo "0" > ${MYAUTH}/serial && chown -R ${APACHE2_USER} ${MYAUTH}
 	openssl rand -base64 48 | tee ${PAM_URL}/secret > ${MYAUTH}/secret
 	install -D -m 500 ${obj} ${EXPERIMENTAL}/lib/
 	install -m 511 examples/experimental/myauth-hmac.php /usr/lib/cgi-bin
