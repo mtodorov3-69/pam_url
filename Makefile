@@ -52,6 +52,7 @@ experimental:
 		&& echo "0" > ${MYAUTH}/serial && chown -R ${APACHE2_USER} ${MYAUTH}
 	openssl rand -base64 48 | tee ${PAM_URL}/secret > ${MYAUTH}/secret
 	install -D -m 500 ${obj} ${EXPERIMENTAL}/lib/
+	mkdir -p ${EXPERIMENTAL}
 	install -m 511 examples/experimental/myauth-hmac.php /usr/lib/cgi-bin
 	test -s ${EXPERIMENTAL}/etc/pam_url.conf || install -D -m 644 examples/experimental/pam_url.conf ${EXPERIMENTAL}/etc
 	install -m 644 examples/experimental/pam_url_test /etc/pam.d
