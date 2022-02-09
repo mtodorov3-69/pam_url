@@ -62,8 +62,8 @@ experimental:
 
 test:
 	test -x /usr/bin/pamtester || echo "run apt-get install pamtester" && exit
-	pamtester -v test 'CN=tablet-johnnybravo.alu.hr, O=ALU-UNIZG' authenticate
-	pamtester -v test 'CN=tablet-unknown.alu.hr, O=ALU-UNIZG' authenticate
+	pamtester -v test 'CN=tablet-johnnybravo.example.hr, O=EXAMPLE-ORG' authenticate
+	pamtester -v test 'CN=tablet-unknown.example.hr, O=EXAMPLE-ORG' authenticate
 
 reinit:
 	echo "0" > /var/lib/pam_url/serial && echo "0" > /var/lib/pam_url/nonce_ctr
