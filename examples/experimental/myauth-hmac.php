@@ -5,7 +5,7 @@
 // v0.07.01 2022-02-07 some security hardening
 // v0.07 2022-02-07 added unique request serial number protection.
 // v0.05 2022-02-06 added experimental hmac-sha512 challenge-response verification
-//                      against brute force replay attacks.
+//		      against brute force replay attacks.
 // v0.04 2022-02-06 added experimental hmac-sha512 authentication
 // v0.03 2022-01-26 enabled multiline comments
 // v0.02 2022-01-25 enaled mapping certs to usernames in pamlib-pkcs11 '->' and Paul Wouters' 'username@' notation
@@ -20,14 +20,25 @@
 // DO SOURCE IP REGION CHECKS HERE, OTHERWISE BRUTEFORCE attacks might occur!!
 
 $ip_address = $_SERVER['REMOTE_ADDR'];
-$ip_srv_address = $_SERVER['SERVER_ADDR'];
+// $ip_srv_address = $_SERVER['SERVER_ADDR'];
+$ip_srv_address = gethostbyname (gethostname());
 
-if ( $_SERVER['CONTENT_LENGTH'] > 4096 )
+if ( isset ($_SERVER['CONTENT_LENGTH']) )
 {
-	// This was most likely a brute force attack.
+	if ( $_SERVER['CONTENT_LENGTH'] > 4096 )
+	{
+		// This was most likely a brute force attack.
+		header("HTTP/1.1 403 Forbidden");
+		echo "ACCESS DENIED";
+		error_log("ALERT: Request size overflow from host $ip_address");
+		exit(7);
+	}
+}
+else
+{
 	header("HTTP/1.1 403 Forbidden");
 	echo "ACCESS DENIED";
-	error_log("ALERT: Request size overflow from host $ip_address");
+	error_log("ALERT: refused GET request from host $ip_address");
 	exit(7);
 }
 
@@ -120,8 +131,8 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 			if (file_exists($path)) {
 			    if (($configuration = file_get_contents($path)) !== false) {
 				// enable multiline comments
-                                $configuration = preg_replace('#\/\*.*\*\/#sU', '', $configuration);
-                                $lines = preg_split('/\n/', $configuration);
+				$configuration = preg_replace('#\/\*.*\*\/#sU', '', $configuration);
+				$lines = preg_split('/\n/', $configuration);
 				foreach ($lines as $input_line) {
 				    // enable hash # and // C++ style comments in the authorization file
 				    $input_line = preg_replace('/(#.*|\/\/.*)$/', '', $input_line);
