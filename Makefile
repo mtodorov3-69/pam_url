@@ -57,7 +57,7 @@ experimental:
 	umask 022
 	test -s ${EXPERIMENTAL}/etc/pam_url.conf || sed 's/example.domain.hr/`hostname`/g' < examples/experimental/pam_url.conf > ${EXPERIMENTAL}/etc/pam_url.conf
 	install -m 644 examples/experimental/pam_url_test /etc/pam.d
-	mkdir /var/lib/pam_url
+	mkdir -p /var/lib/pam_url
 	test -s /usr/local/etc/vpn-ikev2-authorized || cp -p examples/experimental/vpn-ikev2-authorized /usr/local/etc/vpn-ikev2-authorized
 
 test:
