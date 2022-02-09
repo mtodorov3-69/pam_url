@@ -20,8 +20,15 @@
 // DO SOURCE IP REGION CHECKS HERE, OTHERWISE BRUTEFORCE attacks might occur!!
 
 $ip_address = $_SERVER['REMOTE_ADDR'];
-// $ip_srv_address = $_SERVER['SERVER_ADDR'];
-$ip_srv_address = gethostbyname (gethostname());
+$ip_srv_address = $_SERVER['SERVER_ADDR'];
+
+if ( strncmp($ip_srv_address, "127.", 4) == 0)
+{
+	$result = dns_get_record($_SERVER['HTTP_HOST'], DNS_A);
+	$ip_srv_address = $result[0]["ip"];
+}
+
+$hostname = gethostname();
 
 if ( isset ($_SERVER['CONTENT_LENGTH']) )
 {
@@ -42,11 +49,12 @@ else
 	exit(7);
 }
 
-if ( $ip_address !== $ip_srv_address )
+if ( $ip_address != $ip_srv_address )
 {
 	header("HTTP/1.1 403 Forbidden");
 	echo "HOST NOT PERMITTED";
-	error_log("001: Access denied from host $ip_address on $ip_srv_address");
+	$remote = gethostbyaddr($ip_address);
+	error_log("001: Access denied from host $ip_address on $ip_srv_address, $remote, $hostname");
 	exit(7);
 }
 else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"]) )
