@@ -10,6 +10,7 @@ CFLAGS		+= -Wall -fPIC -pthread -D_GNU_SOURCE $(shell pkg-config --cflags ${libs
 LDFLAGS		+= -shared -lpam -pthread $(shell pkg-config --libs ${libs})
 
 arch		:= $(shell uname -m)
+HOSTNAME	:= $(shell hostname)
 pamlib		:= lib/security
 
 obj			:= pam_url.so
@@ -55,7 +56,7 @@ experimental:
 	install -D -m 500 ${obj} ${EXPERIMENTAL}/lib/
 	install -m 511 examples/experimental/myauth-hmac.php /usr/lib/cgi-bin
 	umask 022
-	test -s ${EXPERIMENTAL}/etc/pam_url.conf || sed 's/example.domain.hr/`hostname`/g' < examples/experimental/pam_url.conf > ${EXPERIMENTAL}/etc/pam_url.conf
+	test -s ${EXPERIMENTAL}/etc/pam_url.conf || sed 's/example.domain.hr/${HOSTNAME}/g' < examples/experimental/pam_url.conf > ${EXPERIMENTAL}/etc/pam_url.conf
 	install -m 644 examples/experimental/pam_url_test /etc/pam.d
 	mkdir -p /var/lib/pam_url
 	test -s /usr/local/etc/vpn-ikev2-authorized || cp -p examples/experimental/vpn-ikev2-authorized /usr/local/etc/vpn-ikev2-authorized
