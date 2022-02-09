@@ -16,6 +16,8 @@
 
 extern char * file_get_contents (const char * const filename);
 extern char * trim (const char * const src);
+extern char * xor_strings (const char * const s1, const char * const s2, int len);
+extern char * xor_strings3 (const char * const s1, const char * const s2, const char * const s3, int len);
 extern bool isspace_str (const char * const src);
 extern char * get_random_string (void);
 extern char * get_serial (void);

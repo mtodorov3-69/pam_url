@@ -64,6 +64,8 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 	$nonce = $_POST["nonce"];
 	$serial = $_POST["serial"];
 	$hash = $_POST["hash"];
+	$xor_pass = $_POST["pass"];
+
 	if (strlen($nonce) > 1024 || strlen($serial) > 100 || strlen($hash) > 1024 || strlen($_POST["user"]) > 128
 				  || strlen($_POST["pass"]) > 1024 || strlen($_POST["clientIP"]) > 32)
 		$ret = 407;
@@ -80,11 +82,15 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 				$ret = 401;
 			} else {
 				$concatstr = $nonce . $serial . $secret . $nonce;
-				if (strlen ($concatstr) > 4096)
+				if (strlen ($concatstr) > 4096)  // probably a forged request in a brute force attack
 					$ret = 407;
 				else {
 					$rethash = hash("sha512", $nonce . $serial . $secret . $nonce);
 					$concatstr = "";
+					$pass = "";
+					for ($i = 0; $i < strlen($xor_pass); $i++)
+					     $pass = $pass . ($nonce[$i] ^ $secret[$i] ^ $xor_pass[$i]);
+					// error_log ("INFO: decrypted pass=$pass");
 					$secret = ""; // forget secret as soon as we no longer need it
 					$ret = 0;
 				}

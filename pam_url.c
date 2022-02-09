@@ -215,6 +215,7 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 
 	char *urlsafe_fields = NULL, *hmac_fields = NULL;
 	char *secret = NULL, *trim_secret = NULL;
+	char *xor_passwd = NULL;
 	char *hash = NULL;
 
 	if( NULL == opts.user )
@@ -241,6 +242,21 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 	if (nonce == NULL || serial == NULL)
 		goto curl_error;
 
+	debug(pamh, "secrets=%s", opts.secret_file);
+	if ((secret = file_get_contents (opts.secret_file)) == NULL)
+	{
+		debug(pamh, "Failed the secret: %s", strerror (errno));
+		goto curl_error;
+	}
+	debug(pamh, "Read the secret. Not logging it.");
+	trim_secret = trim (secret);
+	SAFE_FREE (secret);  // Keep secret in memory as little as possible
+
+	if (trim_secret == NULL)
+		goto curl_error;
+	else
+		debug(pamh, "Trimmed the secret.");
+
 	if( !opts.skip_password ) {
 		if (strncmp (opts.url, "https://", 8) != 0 ) {
 			debug(pamh, "ALERT: Attempt to send password in clear refused. Make sure that you are using HTTPS!");
@@ -260,24 +276,28 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 			}
 
 			passwd = strdup (combined);
-			safe_passwd = curl_easy_escape(eh, combined, 0);
 			SAFE_FREE(combined);
 		}
 		else
 		{
 			passwd = strdup (opts.passwd);
-			safe_passwd = curl_easy_escape(eh, opts.passwd, 0);
 		}
 	} else {
 		debug(pamh, "WARNING: Requested passwordless authentication. Make sure this is not the only and sufficient auth pam module.");
 		passwd = strdup ("");
-		safe_passwd = curl_easy_escape(eh, "", 0);
 	}
-
-	if( safe_passwd == NULL || passwd == NULL ) {
+	if( passwd == NULL )
 		goto curl_error_5;
-	}
 
+	debug(pamh, "Preparing masked password.");
+	if ((xor_passwd = xor_strings3 (passwd, trim_secret, nonce, strlen (nonce))) == NULL)
+		goto curl_error_5;
+
+	debug(pamh, "Preparing safe password.");
+	if ((safe_passwd = curl_easy_escape(eh, xor_passwd, 0)) == NULL)
+		goto curl_error_5;
+
+	debug(pamh, "Preparing post fields.");
 	ret = asprintf(&urlsafe_fields, "%s=%s&%s=%s&mode=%s&clientIP=%s&nonce=%s&serial=%s", opts.user_field,
 							safe_user,
 							opts.passwd_field,
@@ -299,28 +319,14 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 		goto curl_error;
 
 	ret = asprintf(&hmac_fields, "%s%s%s%s%s", (const char *)opts.user,
-						passwd,
+						xor_passwd,
 						opts.mode,
 						(const char *)opts.clientIP,
 						serial);
 	SAFE_FREE (passwd);
+	SAFE_FREE(xor_passwd);
 	if (ret == -1)
 		goto curl_error;
-
-	debug(pamh, "secrets=%s", opts.secret_file);
-	if ((secret = file_get_contents (opts.secret_file)) == NULL)
-	{
-		debug(pamh, "Failed the secret: %s", strerror (errno));
-		goto curl_error;
-	}
-	debug(pamh, "Read the secret. Not logging it.");
-	trim_secret = trim (secret);
-	SAFE_FREE (secret);  // Keep secret in memory as little as possible
-
-	if (trim_secret == NULL)
-		goto curl_error;
-	else
-		debug(pamh, "Trimmed the secret.");
 
 	bool success = false;
 

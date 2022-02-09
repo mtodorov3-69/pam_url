@@ -199,6 +199,46 @@ bool isspace_str (const char * const src)
 		return false;
 }
 
+char *xor_strings (const char * const s1, const char * const s2, int len)
+{
+	const char *p = s1, *q = s2;
+	int i = 0;
+	char *result = (char *) malloc (len + 1);
+	char *r = result;
+
+	if (result != NULL)
+	{
+		for ( ; *p && *q && i < len; p++, q++, i++) {
+			*r = *p ^ *q;
+			// fprintf(stderr, "i=%d result[i]='%c' *p='%c' *q='%c'\n", i, *r, *p, *q);
+			r ++;
+		}
+
+		*r = '\0';
+	}
+	return result;
+}
+
+char *xor_strings3 (const char * const s1, const char * const s2, const char * const s3, int len)
+{
+	const char *p = s1, *q = s2, *r = s3;
+	int i = 0;
+	char *result = (char *) malloc (len + 1);
+	char *s = result;
+
+	if (result != NULL)
+	{
+		for ( ; *p && *q && *r && i < len; p++, q++, r++, i++) {
+			*s = *p ^ *q ^ *r;
+			// fprintf(stderr, "i=%d result[i]='%c' *p='%c' *q='%c' *r='%c'\n", i, result[i], *p, *q, *r);
+			s ++;
+		}
+
+		*s = '\0';
+	}
+	return result;
+}
+
 char *file_get_contents (const char *const filename)
 {
 	struct stat statbuf;
@@ -246,12 +286,20 @@ char *file_get_contents (const char *const filename)
 int main (int argc, char *argv[])
 {
 	char * serial, * nonce_ctr = NULL;
+
+	char *s1 = "BeeABBeeoBodBaBdOdPQBBgDQgDdp";
+	// char *s1 = "BeeABBeeoBodBaBdOd";
+	char *s2 = "\n\n\t8b\n\n\t\nb&\nb b  \n%%nb%%%\n%\nQ";
+
+	printf ("%s\n", s1);
+	printf ("%s\n", xor_strings (s1, s2, strlen (s1)));
+	printf ("%s\n", xor_strings3 (s1, s2, s2, strlen (s1)));
+	printf ("%s\n", xor_strings3 ("probni1234", "verybigsecret", "nooooooooooooooooonce", 21));
 /*
 	// printf ("%s", file_get_contents (argv[1]));
 	printf ("%s\n", get_random_string ());
 	printf ("%s\n", get_random_string ());
 	printf ("%s\n", get_random_string ());
-*/
 	if ((serial = get_serial()) != NULL)
 		printf ("%s\n", serial);
 	if ((nonce_ctr = get_nonce_ctr()) != NULL)
@@ -263,7 +311,6 @@ int main (int argc, char *argv[])
 		printf ("%s\n", serial);
 	if ((serial = get_serial()) != NULL)
 		printf ("%s\n", serial);
-	/*
 	char *fstr = NULL, *trimstr = NULL;
 */
 /*
