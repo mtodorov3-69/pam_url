@@ -211,7 +211,7 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 	int ret = 0;
 	char* nonce = NULL, *serial = NULL;
 
-	char *passwd = NULL, *safe_passwd = NULL, *combined = NULL;
+	char *passwd = NULL, *safe_passwd = NULL;
 
 	char *urlsafe_fields = NULL, *hmac_fields = NULL;
 	char *secret = NULL, *trim_secret = NULL;
@@ -242,36 +242,41 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 		goto curl_error;
 
 	if( !opts.skip_password ) {
+		if (strncmp (opts.url, "https://", 8) != 0 ) {
+			debug(pamh, "ALERT: Attempt to send password in clear refused. Make sure that you are using HTTPS!");
+			goto curl_error;
+		}
 		if( opts.prepend_first_pass && NULL != opts.first_pass )
 		{
+			char *combined = NULL;
+
 			debug(pamh, "Prepending previously used password.");
 			if( asprintf(&combined, "%s%s", opts.first_pass, (const char *)opts.passwd) < 0 ||
 				combined == NULL )
 			{
+				debug(pamh, "Out of memory: %s", strerror (errno));
 				SAFE_FREE(combined);
-				debug(pamh, "Out of memory");
 				goto curl_error_5;
 			}
 
 			passwd = strdup (combined);
 			safe_passwd = curl_easy_escape(eh, combined, 0);
+			SAFE_FREE(combined);
 		}
 		else
 		{
 			passwd = strdup (opts.passwd);
 			safe_passwd = curl_easy_escape(eh, opts.passwd, 0);
 		}
-
-		if( safe_passwd == NULL ) {
-			SAFE_FREE(combined);
-			goto curl_error_5;
-		}
 	} else {
-		debug(pamh, "Skipping password.");
+		debug(pamh, "WARNING: Requested passwordless authentication. Make sure this is not the only and sufficient auth pam module.");
 		passwd = strdup ("");
 		safe_passwd = curl_easy_escape(eh, "", 0);
 	}
-	SAFE_FREE (combined);
+
+	if( safe_passwd == NULL || passwd == NULL ) {
+		goto curl_error_5;
+	}
 
 	ret = asprintf(&urlsafe_fields, "%s=%s&%s=%s&mode=%s&clientIP=%s&nonce=%s&serial=%s", opts.user_field,
 							safe_user,
@@ -282,6 +287,7 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 							nonce,
 							serial/*,
 							opts.extra_field*/);
+	explicit_bzero (safe_passwd, strlen(safe_passwd));
 	curl_free(safe_passwd);	
 	curl_free(safe_user);
 	debug(pamh, "Wrote the POST fields: %s.", urlsafe_fields);
