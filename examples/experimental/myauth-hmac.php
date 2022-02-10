@@ -64,7 +64,7 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 	$nonce = $_POST["nonce"];
 	$serial = $_POST["serial"];
 	$hash = $_POST["hash"];
-	$xor_pass = $_POST["pass"];
+	$xor_pass_hex = $_POST["pass"];
 
 	if (strlen($nonce) > 1024 || strlen($serial) > 100 || strlen($hash) > 1024 || strlen($_POST["user"]) > 128
 				  || strlen($_POST["pass"]) > 1024 || strlen($_POST["clientIP"]) > 32)
@@ -88,7 +88,8 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 					$rethash = hash("sha512", $nonce . $serial . $secret . $nonce);
 					$concatstr = "";
 					$pass = "";
-					for ($i = 0; $i < strlen($xor_pass); $i++)
+					$xor_pass = hex2bin($xor_pass_hex);
+					for ($i = 0; $i < strlen($xor_pass_hex) / 2; $i++)
 					     $pass = $pass . ($nonce[$i] ^ $secret[$i] ^ $xor_pass[$i]);
 					// error_log ("INFO: decrypted pass=$pass");
 					$secret = ""; // forget secret as soon as we no longer need it

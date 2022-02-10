@@ -17,7 +17,7 @@ size_t recvbuf_size = 0;
 static config_t config;
 bool  pam_url_debug = false;
 
-void debug(pam_handle_t* pamh, const char *fmt, ...)
+void debug(pam_handle_t* pamh, const char * const fmt, ...)
 {
 	va_list ap;
 
@@ -218,11 +218,16 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 	char *xor_passwd = NULL;
 	char *hash = NULL;
 
+	bool success = false;
+
 	if( NULL == opts.user )
 		opts.user = "";
 
 	if( NULL == opts.passwd )
 		opts.passwd = "";
+	
+	if( NULL == opts.clientIP )
+		opts.clientIP = "";
 	
 	if( 0 != curl_global_init(CURL_GLOBAL_ALL) )
 		goto curl_error_1;
@@ -235,27 +240,17 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 		goto curl_error_3;
 
 	debug(pamh, "Getting a random string.");
-	if ((nonce = get_random_string()) == NULL)
-		debug(pamh, "Didn't get myself a nonce.");
-	if ((serial = get_serial()) == NULL)
-		debug(pamh, "Didn't get a serial.");
-	if (nonce == NULL || serial == NULL)
-		goto curl_error;
+	success = (nonce       = get_random_string())			&&
+		  (serial      = get_serial())				&&
+		  (secret      = file_get_contents (opts.secret_file))	&&
+		  (trim_secret = trim (secret));
 
-	debug(pamh, "secrets=%s", opts.secret_file);
-	if ((secret = file_get_contents (opts.secret_file)) == NULL)
-	{
-		debug(pamh, "Failed the secret: %s", strerror (errno));
-		goto curl_error;
-	}
-	debug(pamh, "Read the secret. Not logging it.");
-	trim_secret = trim (secret);
 	FORGET (secret);  // Keep secret in memory as little as possible
 
-	if (trim_secret == NULL)
-		goto curl_error;
-	else
-		debug(pamh, "Trimmed the secret.");
+	if (success == false)
+		goto curl_error_5;
+
+	debug(pamh, "Read the secret. Not logging it.");
 
 	if( !opts.skip_password ) {
 		if (strncmp (opts.url, "https://", 8) != 0 ) {
@@ -284,14 +279,20 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 			FORGET_NOT_FREE(opts.passwd);
 		}
 	} else {
-		debug(pamh, "WARNING: Requested passwordless authentication. Make sure this is not the only and sufficient auth pam module.");
+		debug(pamh, "WARNING: You have requested passwordless authentication. Make sure this is not the only and sufficient auth pam module.");
 		passwd = strdup ("");
 	}
 	if( passwd == NULL )
 		goto curl_error_5;
 
+	if (strlen (passwd) > strlen (trim_secret) || strlen (passwd) > strlen (nonce))
+	{
+		debug(pamh, "Password too long.");
+		goto curl_error_5;
+	}
+
 	debug(pamh, "Preparing masked password.");
-	if ((xor_passwd = xor_strings3 (passwd, trim_secret, nonce, strlen (nonce))) == NULL)
+	if ((xor_passwd = xor_strings3_hex (passwd, trim_secret, nonce)) == NULL)
 		goto curl_error_5;
 
 	debug(pamh, "Preparing safe password.");
@@ -321,16 +322,12 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 		// should not have security implications in this context).
 		goto curl_error;
 
-	ret = asprintf(&hmac_fields, "%s%s%s%s%s", (const char *)opts.user,
-						xor_passwd,
-						opts.mode,
-						(const char *)opts.clientIP,
-						serial);
+	hmac_fields = my_str_concat5 (opts.user, xor_passwd, opts.mode, opts.clientIP, serial);
 	FORGET (xor_passwd);
-	if (ret == -1)
-		goto curl_error;
+	debug(pamh, "Wrote the hmac fields: %s.", hmac_fields);
 
-	bool success = false;
+	if (hmac_fields == NULL)
+		goto curl_error;
 
 	success =  (hash    = hashsum_fmt("sha512", "%s%s%s%s", nonce, hmac_fields, trim_secret, nonce)) &&
 		   (rethash = hashsum_fmt("sha512", "%s%s%s%s", nonce, serial, trim_secret, nonce));
@@ -345,12 +342,12 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 
 	debug (pamh, "rethash = %s", rethash);
 
-	ret = asprintf(&post, "%s&hash=%s", urlsafe_fields, hash);
+	post = str_concat3 (urlsafe_fields, "&hash=", hash);
 
 	SAFE_FREE (urlsafe_fields);
 	SAFE_FREE (hash);
 
-	if (ret == -1)
+	if (post == NULL)
 		goto curl_error;
 
 	if( 1 == pam_url_debug)
@@ -428,27 +425,42 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 
 curl_error_5:
 	curl_free(safe_user);
+	if (secret == NULL)
+	{
+		debug(pamh, "Failed the secret: %s", strerror (errno));
+		debug(pamh, "secrets=%s", opts.secret_file);
+	} else
+		FORGET(secret);
+	if (serial == NULL)
+		debug(pamh, "Didn't get a serial.");
+	else
+		SAFE_FREE(serial);
+	if (nonce == NULL)
+		debug(pamh, "Didn't get myself a nonce.");
+	else
+		SAFE_FREE(nonce);
 curl_error:
 	debug(pamh, "curl_error: freeing memory");
-	if (xor_passwd != NULL)
+	// double check everything for memory leaks
+	if (xor_passwd  != NULL)
 		FORGET (xor_passwd);
-	if (passwd != NULL)
+	if (passwd      != NULL)
 		FORGET (passwd);
-	if (nonce != NULL)
-		SAFE_FREE (nonce);
-	if (serial != NULL)
-		SAFE_FREE (serial);
+	if (nonce       != NULL)
+		SAFE_FREE(nonce);
+	if (serial      != NULL)
+		SAFE_FREE(serial);
 	if (hmac_fields != NULL)
-		SAFE_FREE (hmac_fields);
-	if (post != NULL)
+		SAFE_FREE(hmac_fields);
+	if (post        != NULL)
 		SAFE_FREE(post);
 curl_error_4:
 	debug(pamh, "curl_error_4: freeing memory");
 	if (urlsafe_fields != NULL)
 		SAFE_FREE (urlsafe_fields);
-	if (hash != NULL)
+	if (hash           != NULL)
 		SAFE_FREE (hash);
-	if (rethash != NULL)
+	if (rethash        != NULL)
 		SAFE_FREE (rethash);
 curl_error_3:
 	curl_easy_cleanup(eh);

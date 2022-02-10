@@ -20,6 +20,16 @@ extern char * file_get_contents (const char * const filename);
 extern char * trim (const char * const src);
 extern char * xor_strings (const char * const s1, const char * const s2, int len);
 extern char * xor_strings3 (const char * const s1, const char * const s2, const char * const s3, int len);
+extern char * xor_strings3_hex (const char * const s1, const char * const s2, const char * const s3);
+extern char *str_concat2 (const char * const s1, const char * const s2);
+extern char *str_concat3 (const char * const s1, const char * const s2, const char * const s3);
+extern char *str_concat4 (const char * const s1, const char * const s2, const char * const s3, const char * const s4);
+extern char *str_concat5 (const char * const s1, const char * const s2, const char * const s3, const char * const s4, const char * const s5);
+extern char *my_str_concat2 (const char * const s1, const char * const s2);
+extern char *my_str_concat3 (const char * const s1, const char * const s2, const char * const s3);
+extern char *my_str_concat4 (const char * const s1, const char * const s2, const char * const s3, const char * const s4);
+extern char *my_str_concat5 (const char * const s1, const char * const s2, const char * const s3, const char * const s4, const char * const s5);
+
 extern bool isspace_str (const char * const src);
 extern char * get_random_string (void);
 extern char * get_serial (void);
@@ -41,5 +51,4 @@ extern void sha256(char *string, char outputBuffer[65]);
 extern int sha256_file(char *path, char outputBuffer[65]);
 
 #endif
-
 
