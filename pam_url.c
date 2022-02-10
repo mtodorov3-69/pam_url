@@ -240,7 +240,7 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 		goto curl_error_3;
 
 	debug(pamh, "Getting a random string.");
-	success = (nonce       = get_random_string())			&&
+	success = (nonce       = get_unique_nonce())			&&
 		  (serial      = get_serial())				&&
 		  (secret      = file_get_contents (opts.secret_file))	&&
 		  (trim_secret = trim (secret));
@@ -287,7 +287,7 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 
 	if (strlen (passwd) > strlen (trim_secret) || strlen (passwd) > strlen (nonce))
 	{
-		debug(pamh, "Password too long.");
+		debug(pamh, "Password too long. The encryption is not defined for passwd > secret.");
 		goto curl_error_5;
 	}
 

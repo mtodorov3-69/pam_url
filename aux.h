@@ -31,7 +31,7 @@ extern char *my_str_concat4 (const char * const s1, const char * const s2, const
 extern char *my_str_concat5 (const char * const s1, const char * const s2, const char * const s3, const char * const s4, const char * const s5);
 
 extern bool isspace_str (const char * const src);
-extern char * get_random_string (void);
+extern char * get_unique_nonce (void);
 extern char * get_serial (void);
 extern char * get_nonce_ctr (void);
 extern char * do_get_serial (const char * const serial_file, const char * const lock_file);

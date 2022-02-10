@@ -132,7 +132,7 @@ char * get_nonce_ctr (void)
 	return do_get_serial (NONCE_CTR_FILE, NONCE_CTR_LOCK_FILE);
 }
 
-char *get_random_string (void)
+char *get_unique_nonce (void)
 {
 	static bool _first_run = true;
 	static struct drand48_data buffer;
