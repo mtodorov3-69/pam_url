@@ -48,6 +48,11 @@ You can additionally set the following options:
 				 Enabling pam_url as the only and sufficient method of
 				 communication will leave your system open to login
 				 without passwords!
+DISCLAIMER
+This software is not for use by the novice and inexperienced administrators as they could
+accidentally leave the system trusting to the anyone in the world who claims he is one
+of the legitimate users without a password. Use only as the second stage of verification,
+after the access is already granted. USE AT YOUR OWN RISK!
 
 Please take a look inside the examples directory.
 Please read the COPYING, INSTALL and AUTHOR files as well.
