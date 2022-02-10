@@ -250,7 +250,7 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 	}
 	debug(pamh, "Read the secret. Not logging it.");
 	trim_secret = trim (secret);
-	SAFE_FREE (secret);  // Keep secret in memory as little as possible
+	FORGET (secret);  // Keep secret in memory as little as possible
 
 	if (trim_secret == NULL)
 		goto curl_error;
@@ -271,16 +271,17 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 				combined == NULL )
 			{
 				debug(pamh, "Out of memory: %s", strerror (errno));
-				SAFE_FREE(combined);
+				FORGET(combined);
 				goto curl_error_5;
 			}
 
 			passwd = strdup (combined);
-			SAFE_FREE(combined);
+			FORGET(combined);
 		}
 		else
 		{
 			passwd = strdup (opts.passwd);
+			FORGET_NOT_FREE(opts.passwd);
 		}
 	} else {
 		debug(pamh, "WARNING: Requested passwordless authentication. Make sure this is not the only and sufficient auth pam module.");
@@ -297,6 +298,8 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 	if ((safe_passwd = curl_easy_escape(eh, xor_passwd, 0)) == NULL)
 		goto curl_error_5;
 
+	FORGET (passwd);
+
 	debug(pamh, "Preparing post fields.");
 	ret = asprintf(&urlsafe_fields, "%s=%s&%s=%s&mode=%s&clientIP=%s&nonce=%s&serial=%s", opts.user_field,
 							safe_user,
@@ -307,7 +310,7 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 							nonce,
 							serial/*,
 							opts.extra_field*/);
-	explicit_bzero (safe_passwd, strlen(safe_passwd));
+	FORGET_NOT_FREE (safe_passwd);
 	curl_free(safe_passwd);	
 	curl_free(safe_user);
 	debug(pamh, "Wrote the POST fields: %s.", urlsafe_fields);
@@ -323,8 +326,7 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 						opts.mode,
 						(const char *)opts.clientIP,
 						serial);
-	SAFE_FREE (passwd);
-	SAFE_FREE(xor_passwd);
+	FORGET (xor_passwd);
 	if (ret == -1)
 		goto curl_error;
 
@@ -333,7 +335,7 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 	success =  (hash    = hashsum_fmt("sha512", "%s%s%s%s", nonce, hmac_fields, trim_secret, nonce)) &&
 		   (rethash = hashsum_fmt("sha512", "%s%s%s%s", nonce, serial, trim_secret, nonce));
 
-	SAFE_FREE (trim_secret);  // Keep secret in memory as little as possible
+	FORGET (trim_secret);  // Keep secret in memory as little as possible
 	SAFE_FREE (nonce);
 	SAFE_FREE (hmac_fields);
 	SAFE_FREE (serial);
@@ -429,9 +431,9 @@ curl_error_5:
 curl_error:
 	debug(pamh, "curl_error: freeing memory");
 	if (xor_passwd != NULL)
-		SAFE_FREE (xor_passwd);
+		FORGET (xor_passwd);
 	if (passwd != NULL)
-		SAFE_FREE (passwd);
+		FORGET (passwd);
 	if (nonce != NULL)
 		SAFE_FREE (nonce);
 	if (serial != NULL)

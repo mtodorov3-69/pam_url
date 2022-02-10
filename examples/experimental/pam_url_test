@@ -1,10 +1,12 @@
 #%PAM-1.0
 # auth       sufficient   /usr/local/lib/pam_url.so config=/etc/pam_url.conf debug
-auth       sufficient   /usr/local/experimental/lib/pam_url.so config=/usr/local/experimental/etc/pam_url.conf skip_password debug
+# auth       sufficient   /usr/local/experimental/lib/pam_url.so config=/usr/local/experimental/etc/pam_url.conf skip_password debug
+auth       sufficient   /usr/local/experimental/lib/pam_url.so config=/usr/local/experimental/etc/pam_url.conf debug
 auth       required     pam_env.so
 auth       requisite    pam_succeed_if.so uid >= 500 quiet debug
 auth       required     pam_deny.so debug
 
+account       sufficient   /usr/local/experimental/lib/pam_url.so config=/usr/local/experimental/etc/pam_url.conf skip_password debug
 # account       sufficient   /lib64/security/pam_url.so config=/etc/pam_url.conf debug
 # account    include      system-auth
 # password   include      system-auth

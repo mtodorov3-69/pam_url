@@ -7,6 +7,8 @@
 #define __AUX_H
 
 #define SAFE_FREE(STR) { if ((STR) != NULL) { explicit_bzero ((STR), strlen (STR)); free (STR); (STR) = NULL; } }
+#define FORGET(STR) { if ((STR) != NULL) { explicit_bzero ((STR), strlen (STR)); free (STR); (STR) = NULL; } }
+#define FORGET_NOT_FREE(STR) { if ((STR) != NULL) { explicit_bzero ((void *)(STR), strlen (STR)); } }
 
 #define SHA256_STRLEN (SHA256_DIGEST_LENGTH * 2)
 #define SHA384_STRLEN (SHA384_DIGEST_LENGTH * 2)
