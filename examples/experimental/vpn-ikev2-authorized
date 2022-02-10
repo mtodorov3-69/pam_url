@@ -1,0 +1,16 @@
+#
+# pam_url authorization file, mtodorov 2022-01-22
+#
+/*
+ * This is a multiline comment.
+ */
+CN=pc-grf-johnybravo.example.hr, O=EXAMPLE-ORG -> johnybravo
+CN=laptop-johnybravo.example.hr, O=EXAMPLE-ORG -> johnybravo
+CN=phone-johnybravo.example.hr, O=EXAMPLE-ORG /* single line comment */
+/*
+   This too.
+CN=johnybravo@phone-johnybravo.example.hr, O=EXAMPLE-ORG -> nonexisting # temporary disabled
+*/
+CN=nonexisting@phone-johnybravo.example.hr, O=EXAMPLE-ORG # end of line comment
+CN=tablet-johnybravo.example.hr, O=EXAMPLE-ORG            // this too.
+CN=pc-johnybravo.example.hr, O=EXAMPLE-ORG		  # end of line comment 2

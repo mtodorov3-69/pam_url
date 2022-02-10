@@ -284,7 +284,8 @@ char *xor_strings3_hex (const char * const s1, const char * const s2, const char
 
 	// fprintf (stderr, "size=%d hex_result='%s'\n", s - result, hex_result);
 
-	SAFE_FREE (result);
+	explicit_bzero (result, len);
+	free (result);
 
 	return hex_result;
 }
