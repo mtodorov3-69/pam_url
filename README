@@ -49,9 +49,10 @@ You can additionally set the following options:
 				 communication will leave your system open to login
 				 without passwords!
 DISCLAIMER
+
 This software is not for use by the novice and inexperienced administrators as they could
 accidentally leave the system trusting to the anyone in the world who claims he is one
-of the legitimate users without a password. Use only as the second stage of verification,
+of the legitimate users without a password. Use only as the secondary stage of verification,
 after the access is already granted. USE AT YOUR OWN RISK!
 
 Please take a look inside the examples directory.

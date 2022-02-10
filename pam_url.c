@@ -428,6 +428,8 @@ curl_error_5:
 	curl_free(safe_user);
 curl_error:
 	debug(pamh, "curl_error: freeing memory");
+	if (xor_passwd != NULL)
+		SAFE_FREE (xor_passwd);
 	if (passwd != NULL)
 		SAFE_FREE (passwd);
 	if (nonce != NULL)
