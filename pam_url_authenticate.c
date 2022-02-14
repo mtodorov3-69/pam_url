@@ -2,6 +2,7 @@
 // GPLv2 - Mirsad Goran Todorovac, 2022-02-03, adding skip_password option
 
 #include "pam_url.h"
+#include "aux.h"
 
 extern char *recvbuf;
 
@@ -40,6 +41,11 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,
 	{
 		ret++;
 		debug(pamh, "Could not parse module options.");
+	}
+	else if (!is_legal_hashalg (opts.hashalg))
+	{
+		debug(pamh, "%s: Unknown hash algorithm.", opts.hashalg);
+		return PAM_SERVICE_ERR;
 	}
 
 	if( !opts.skip_password && (!opts.use_first_pass || NULL == opts.passwd) )

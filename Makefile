@@ -55,6 +55,7 @@ experimental:
 	mkdir -p ${EXPERIMENTAL}/etc ${EXPERIMENTAL}/lib
 	install -D -m 500 ${obj} ${EXPERIMENTAL}/lib/
 	install -m 755 examples/experimental/myauth-hmac.php /usr/lib/cgi-bin
+	install -m 755 examples/experimental/myauth-hmac-unstable.php /usr/lib/cgi-bin
 	umask 022
 	test -s ${EXPERIMENTAL}/etc/pam_url.conf || sed 's/example.domain.hr/${HOSTNAME}/g' < examples/experimental/pam_url.conf > ${EXPERIMENTAL}/etc/pam_url.conf
 	install -m 644 examples/experimental/pam_url_test /etc/pam.d

@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/random.h>
+#include <sys/param.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdbool.h>
@@ -20,6 +21,17 @@
 #include <time.h>
 #include <errno.h>
 #include <assert.h>
+#include <sys/socket.h>
+#include <sys/utsname.h>
+#include <netdb.h>
+#include <pthread.h>
+#include <sys/syscall.h>
+
+#ifndef SYS_gettid
+#error "SYS_gettid unavailable on this system"
+#endif
+
+#define gettid() ((pid_t)syscall(SYS_gettid))
 
 #include "aux.h"
 
@@ -132,34 +144,141 @@ char * get_nonce_ctr (void)
 	return do_get_serial (NONCE_CTR_FILE, NONCE_CTR_LOCK_FILE);
 }
 
+#define MAXHOSTBUF ((MAXHOSTNAMELEN>1024)?MAXHOSTNAMELEN:1024)
+#define MACHINEID "/etc/machine-id"
+// #define USE_DNS 1
+#define USE_DEV_URANDOM 1
+
+pthread_mutex_t nonce_lock;
+
 char *get_unique_nonce (void)
 {
 	static bool _first_run = true;
-	static struct drand48_data buffer;
-	struct timespec tv, tv2;
-	double result, result2;
+	static struct drand48_data buffer1, buffer2, buffer3;
+	double result1, result2, result3;
+	struct timespec tv1, tv2, tv3, tv4, tv5;
 	char * retval = NULL;
 	char *nonce_ctr = get_nonce_ctr();
+	char hostname[MAXHOSTBUF+1];
+	char *fqdn = NULL, *machineid = NULL;
+#ifdef USE_DNS
+	struct addrinfo hints, *res = NULL;
+#endif
+#ifdef USE_DEV_URANDOM
+	int fd;
+#endif
+	unsigned long rnd = 0;
 
 	if (nonce_ctr == NULL)
 		goto get_random_exit2;
 
-	if (clock_gettime (CLOCK_MONOTONIC, &tv) == -1)
+	if (clock_gettime (CLOCK_MONOTONIC, &tv1) == -1)
 		goto get_random_exit;
 
 	if (clock_gettime (CLOCK_PROCESS_CPUTIME_ID, &tv2) == -1)
 		goto get_random_exit;
 
+	if (clock_gettime (CLOCK_THREAD_CPUTIME_ID, &tv3) == -1)
+		goto get_random_exit;
+
+	if (clock_gettime (CLOCK_MONOTONIC_RAW, &tv4) == -1)
+		goto get_random_exit;
+
+	if (clock_gettime (CLOCK_BOOTTIME, &tv5) == -1)
+		goto get_random_exit;
+
+#ifdef USE_DEV_URANDOM
+	/* RFC 4086 chapter 7.1.2 compliant */
+	if ((fd = open ("/dev/urandom", O_RDONLY)) == -1)
+		goto get_random_exit;
+
+	if (read (fd, &rnd, sizeof (rnd)) != sizeof (rnd))
+		goto get_random_exit;
+
+	if (close (fd) == -1)
+		goto get_random_exit;
+#endif
+
+	/* Addressing RFC 5116, chapter 8, paragraph 4 concerns:
+
+	   It is very difficult for an attacker who would use VM rollback which would
+	   rewind the nounce counter on hard drive to set all three time counters and
+	   only one nanosecond difference in any of them is sufficient to generate
+	   a unique nonce.
+	   If all the timers happen to be the same still called by different threads
+	   simultanously on different cores, they will have different thread ID.
+	   If the system has coarse time resolution, unlike Linux, in theory it could
+	   call the nonce generator with the same value of all three counters and
+	   thread ID. However, the nonce counter would be different, and the PRNG
+	   would be seeded only the first time.
+	   Since the process scheduling is stochastic, it is very low probability
+	   that all of the monotonic clock, process clock and thread clock would again
+	   be the same, in particular the monotonic clock which is linked to calendar time.
+	   The same nanosecond on all three counters won't repeat in UTC clock with rollback.
+	   If the attacker could set even the nanosecond monotonic clock, and start
+	   the nonce generator at exact time, different process and thread schedulers
+	   would never repeat the same as they depend on random physical events. 
+	   Theoretically an attacker could rollback the VM and set all three counters,
+	   but only if he is already in control of the kernel, which makes all
+	   security compromised.
+	   This implementation SHOULD protect against ACCIDENTAL repeating of the nonce
+	   by rolling back VM and nonce counter.
+	*/
+
+	pthread_mutex_lock (&nonce_lock);
 	if (_first_run) {
 		_first_run = false;
-		srand48_r (tv2.tv_nsec, &buffer);
+		srand48_r ((tv1.tv_sec << 32 | tv1.tv_nsec) ^ (tv2.tv_sec << 32 | tv2.tv_nsec) ^
+			   (tv3.tv_sec << 32 | tv3.tv_nsec), &buffer1);
+		srand48_r ((tv3.tv_sec << 32 | tv3.tv_nsec) ^ (tv4.tv_sec << 32 | tv2.tv_nsec) ^
+			   (tv5.tv_sec << 32 | tv5.tv_nsec), &buffer2);
+		srand48_r ( rnd ^ getpid() ^ gettid(), &buffer3);
 	}
-	drand48_r (&buffer, &result);
-	drand48_r (&buffer, &result2);
+	pthread_mutex_unlock (&nonce_lock);
+	drand48_r (&buffer1, &result1);
+	drand48_r (&buffer2, &result2);
+	drand48_r (&buffer2, &result3);
 
-	retval = sha256sum_fmt ("%lf:%ld:%ld:%ld:%ld:%d:%lf:%s",
-				result, tv.tv_sec, tv.tv_nsec,
-				tv2.tv_sec, tv2.tv_nsec, getpid(), result2, nonce_ctr);
+	if (gethostname (hostname, sizeof (hostname)) == -1)
+		goto get_random_exit;
+
+	hostname[MAXHOSTBUF] = '\0';
+	fqdn = hostname;
+
+#ifdef USE_DNS
+	/* DNS is insecure, but we do not depend on it as machineid is
+	   sufficient for uniqueness and RFC 5116 compliance. */
+	if (strstr (hostname, ".") == NULL)
+	{
+		bzero (&hints, sizeof (hints));
+		hints.ai_family = AF_UNSPEC;
+		hints.ai_flags  = AI_CANONNAME;
+		if (getaddrinfo (hostname, NULL, &hints, &res) == 0)
+		{
+			fqdn = res->ai_canonname;
+		}
+		else
+			fprintf (stderr, "getaddrinfo: %s\n", strerror (errno));
+	}
+#endif
+
+	//printf ("fqdn='%s'\n", fqdn);
+
+	if (fqdn == NULL)
+		goto get_random_exit;
+
+	if ((machineid = file_get_contents_trimmed (MACHINEID)) == NULL)
+		goto get_random_exit;
+
+	//printf ("machineid='%s'\n", machineid);
+
+	retval = hashsum_fmt ("sha3-256", "%s:%s:%lf:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%d:%ld:%ld%lf:%lf:%lu:%s",
+				fqdn, machineid,
+				result1,
+				tv1.tv_sec, tv1.tv_nsec, tv2.tv_sec, tv2.tv_nsec,
+				tv3.tv_sec, tv3.tv_nsec, tv4.tv_sec, tv4.tv_nsec,
+				tv5.tv_sec, tv5.tv_nsec,
+				getpid(), result2, result3, rnd, nonce_ctr);
 
 	if (get_serial_debug)
 		fprintf (stderr, "retval = %s\n", retval);
@@ -240,7 +359,7 @@ char *xor_strings3 (const char * const s1, const char * const s2, const char * c
 	return result;
 }
 
-char *to_hex (const unsigned char * const src, int len)
+char *bin2hex (const unsigned char * const src, int len)
 {
 	char *retbuf = (char *) malloc (len * 2 + 1);
 	char *hex = retbuf;
@@ -280,7 +399,7 @@ char *xor_strings3_hex (const char * const s1, const char * const s2, const char
 
 	assert (s - result == len);
 
-	char *hex_result = to_hex ((unsigned char *)result, s - result);
+	char *hex_result = bin2hex ((unsigned char *)result, s - result);
 
 	// fprintf (stderr, "size=%d hex_result='%s'\n", s - result, hex_result);
 
@@ -480,6 +599,19 @@ char *file_get_contents (const char *const filename)
 
 	close (fd);
 	return strbuf;
+}
+
+char *file_get_contents_trimmed (const char * const filename)
+{
+	char *contents = file_get_contents (filename);
+	char *retval;
+
+	if (contents == NULL)
+		return (NULL);
+
+	retval = trim (contents);
+	SAFE_FREE (contents);
+	return retval;
 }
 
 #ifdef MAIN

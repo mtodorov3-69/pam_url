@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <openssl/evp.h>
 #include <openssl/sha.h>
 #include <stddef.h>
 #include <errno.h>
@@ -134,6 +135,7 @@ char * sha256sum_fmt (const char * const fmt, ...)
 			free (buf);
 		return NULL;
 	}
+	fprintf (stderr, "hashsum_fmt: val='%s'\n", buf);
 	return sha256_string (buf);
 }
 
@@ -173,17 +175,101 @@ char * sha512sum_fmt (const char * const fmt, ...)
 	return sha512_string (buf);
 }
 
+//perform the SHA3-256 hash
+char * sha3_256(const char * const input)
+{
+    uint32_t digest_length = SHA256_DIGEST_LENGTH;
+    const EVP_MD* algorithm = EVP_sha3_256();
+    uint8_t* digest = (uint8_t *) (OPENSSL_malloc(digest_length));
+    EVP_MD_CTX* context = EVP_MD_CTX_new();
+    EVP_DigestInit_ex(context, algorithm, NULL);
+    EVP_DigestUpdate(context, input, strlen (input));
+    EVP_DigestFinal_ex(context, digest, &digest_length);
+    EVP_MD_CTX_destroy(context);
+    char * output = bin2hex(digest, digest_length);
+    OPENSSL_free(digest);
+    return output;
+}
+
+//perform the SHA3-384 hash
+char * sha3_384(const char * const input)
+{
+    uint32_t digest_length = SHA384_DIGEST_LENGTH;
+    const EVP_MD* algorithm = EVP_sha3_384();
+    uint8_t* digest = (uint8_t *) (OPENSSL_malloc(digest_length));
+    EVP_MD_CTX* context = EVP_MD_CTX_new();
+    EVP_DigestInit_ex(context, algorithm, NULL);
+    EVP_DigestUpdate(context, input, strlen (input));
+    EVP_DigestFinal_ex(context, digest, &digest_length);
+    EVP_MD_CTX_destroy(context);
+    char * output = bin2hex(digest, digest_length);
+    OPENSSL_free(digest);
+    return output;
+}
+
+//perform the SHA3-512 hash
+char * sha3_512(const char * const input)
+{
+    uint32_t digest_length = SHA512_DIGEST_LENGTH;
+    const EVP_MD* algorithm = EVP_sha3_512();
+    uint8_t* digest = (uint8_t *) (OPENSSL_malloc(digest_length));
+    EVP_MD_CTX* context = EVP_MD_CTX_new();
+    EVP_DigestInit_ex(context, algorithm, NULL);
+    EVP_DigestUpdate(context, input, strlen (input));
+    EVP_DigestFinal_ex(context, digest, &digest_length);
+    EVP_MD_CTX_destroy(context);
+    char * output = bin2hex(digest, digest_length);
+    OPENSSL_free(digest);
+    return output;
+}
+
+bool is_legal_hashalg (const char * const alg)
+{
+	     if (strcmp (alg, "sha256") == 0)
+		return true;
+	else if (strcmp (alg, "sha2-256") == 0)
+		return true;
+	else if (strcmp (alg, "sha384") == 0)
+		return true;
+	else if (strcmp (alg, "sha2-384") == 0)
+		return true;
+	else if (strcmp (alg, "sha512") == 0)
+		return true;
+	else if (strcmp (alg, "sha2-512") == 0)
+		return true;
+	else if (strcmp (alg, "sha3-256") == 0)
+		return true;
+	else if (strcmp (alg, "sha3-384") == 0)
+		return true;
+	else if (strcmp (alg, "sha3-512") == 0)
+		return true;
+	else
+		return false;
+}
+
 char * hashsum (const char * const alg, const char * const str)
 {
 	     if (strcmp (alg, "sha256") == 0)
 		return sha256_string (str);
+	else if (strcmp (alg, "sha2-256") == 0)
+		return sha256_string (str);
 	else if (strcmp (alg, "sha384") == 0)
+		return sha384_string (str);
+	else if (strcmp (alg, "sha2-384") == 0)
 		return sha384_string (str);
 	else if (strcmp (alg, "sha512") == 0)
 		return sha512_string (str);
+	else if (strcmp (alg, "sha2-512") == 0)
+		return sha512_string (str);
+	else if (strcmp (alg, "sha3-256") == 0)
+		return sha3_256 (str);
+	else if (strcmp (alg, "sha3-384") == 0)
+		return sha3_384 (str);
+	else if (strcmp (alg, "sha3-512") == 0)
+		return sha3_512 (str);
 	else {
 		fprintf (stderr, "%s: Unknown encryption algorythm.\n", alg);
-		exit (7);
+		return NULL;
 	}
 }
 
@@ -235,7 +321,7 @@ int sha256_file(char *path, char outputBuffer[SHA256_STRLEN+1])
 int main(int argc, char **argv)
 {
 	char calc_hash[SHA256_STRLEN+1];
-
+/*
 	for (int i = 0; i < 10000; i++) {
 		char *s1, *s2, *s3, *s4;
 		char *buf = NULL, *hash1 = NULL, *hash2 = NULL;
@@ -278,8 +364,10 @@ int main(int argc, char **argv)
 		if (strcmp (hash1, hash2 = hashsum_fmt ("sha512", "%s%s%s%s", s1, s2, s3, s4)) != 0)
 			printf("hash1 = '%s', hash2 = '%s'\n", hash1, hash2);
 	}
-
-	// printf("%s\n", sha256_string(argv[1]));
+*/
+	printf("%s sha3-256\n", sha3_256(argv[1]));
+	printf("%s sha3-384\n", sha3_384(argv[1]));
+	printf("%s sha3-512\n", sha3_512(argv[1]));
 	return 0;
 }
 

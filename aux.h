@@ -17,7 +17,9 @@
 #include <stdbool.h>
 
 extern char * file_get_contents (const char * const filename);
+extern char * file_get_contents_trimmed (const char * const filename);
 extern char * trim (const char * const src);
+extern char *bin2hex (const unsigned char * const src, int len);
 extern char * xor_strings (const char * const s1, const char * const s2, int len);
 extern char * xor_strings3 (const char * const s1, const char * const s2, const char * const s3, int len);
 extern char * xor_strings3_hex (const char * const s1, const char * const s2, const char * const s3);
@@ -46,6 +48,7 @@ extern char * sha512_string(const char * const strvalue);
 extern char * sha512sum_fmt (const char * const fmt, ...);
 extern char * hashsum (const char * const alg, const char * const strvalue);
 extern char * hashsum_fmt (const char * const alg, const char * const fmt, ...);
+extern bool is_legal_hashalg (const char * const alg);
 extern void sha256_hash_string (unsigned char hash[SHA256_DIGEST_LENGTH], char outputBuffer[65]);
 extern void sha256(char *string, char outputBuffer[65]);
 extern int sha256_file(char *path, char outputBuffer[65]);

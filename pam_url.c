@@ -122,41 +122,44 @@ int parse_opts(pam_url_opts *opts, int argc, const char *argv[], int mode)
 	
 	config_init(&config);
 	config_read_file(&config, opts->configfile);
-	
+
 	// General Settings
 	if(config_lookup_string(&config, "pam_url.settings.url", &opts->url) == CONFIG_FALSE)
 		opts->url = DEF_URL;
-	
+
 	if(config_lookup_string(&config, "pam_url.settings.returncode", &opts->ret_code) == CONFIG_FALSE)
 		opts->ret_code = DEF_RETURNCODE;
-	
+
 	if(config_lookup_string(&config, "pam_url.settings.userfield", &opts->user_field) == CONFIG_FALSE)
 		opts->user_field = DEF_USER;
-	
+
 	if(config_lookup_string(&config, "pam_url.settings.passwdfield", &opts->passwd_field) == CONFIG_FALSE)
 		opts->passwd_field = DEF_PASSWD;
-	
+
 	if(config_lookup_string(&config, "pam_url.settings.extradata", (const char **)&opts->extra_field) == CONFIG_FALSE)
 		opts->extra_field = DEF_EXTRA;
-	
+
 	if(config_lookup_string(&config, "pam_url.settings.secret", (const char **)&opts->secret_file) == CONFIG_FALSE)
 		opts->secret_file = DEF_SECRET;
-	
+
+	if(config_lookup_string(&config, "pam_url.settings.hashalg", (const char **)&opts->hashalg) == CONFIG_FALSE)
+		opts->hashalg = DEF_HASHALG;
+
 	// SSL Options
 	if(config_lookup_string(&config, "pam_url.ssl.client_cert", &opts->ssl_cert) == CONFIG_FALSE)
 		opts->ssl_cert = DEF_SSLCERT;
-	
+
 	if(config_lookup_string(&config, "pam_url.ssl.client_key", &opts->ssl_key) == CONFIG_FALSE)
 		opts->ssl_key = DEF_SSLKEY;
 	if(config_lookup_string(&config, "pam_url.ssl.ca_cert", &opts->ca_cert) == CONFIG_FALSE)
 		opts->ca_cert = DEF_CA_CERT;
-	
+
 	if(config_lookup_bool(&config, "pam_url.ssl.verify_host", (int *)&opts->ssl_verify_host) == CONFIG_FALSE)
 		opts->ssl_verify_host = true;
-	
+
 	if(config_lookup_bool(&config, "pam_url.ssl.verify_peer", (int *)&opts->ssl_verify_peer) == CONFIG_FALSE)
 		opts->ssl_verify_peer = true;
-	
+
 	return PAM_SUCCESS;
 }
 	
@@ -329,8 +332,8 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 	if (hmac_fields == NULL)
 		goto curl_error;
 
-	success =  (hash    = hashsum_fmt("sha512", "%s%s%s%s", nonce, hmac_fields, trim_secret, nonce)) &&
-		   (rethash = hashsum_fmt("sha512", "%s%s%s%s", nonce, serial, trim_secret, nonce));
+	success =  (hash    = hashsum_fmt(opts.hashalg, "%s%s%s%s", nonce, hmac_fields, trim_secret, nonce)) &&
+		   (rethash = hashsum_fmt(opts.hashalg, "%s%s%s%s", nonce, serial, trim_secret, nonce));
 
 	FORGET (trim_secret);  // Keep secret in memory as little as possible
 	SAFE_FREE (nonce);

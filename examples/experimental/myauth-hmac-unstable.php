@@ -75,7 +75,7 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 		if (strlen($concatstr) > 4096)
 			$ret = 407;
 		else {
-			$myhash = hash("sha512", $concatstr);
+			$myhash = hash("sha3-256", $concatstr);
 			$concatstr = "";
 			if ($hash !== $myhash) {
 				$secret = ""; // forget secret as soon as we no longer need it
@@ -85,7 +85,7 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 				if (strlen ($concatstr) > 4096)  // probably a forged request in a brute force attack
 					$ret = 407;
 				else {
-					$rethash = hash("sha512", $nonce . $serial . $secret . $nonce);
+					$rethash = hash("sha3-256", $nonce . $serial . $secret . $nonce);
 					$concatstr = "";
 					$pass = "";
 					$xor_pass = hex2bin($xor_pass_hex);
