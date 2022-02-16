@@ -601,7 +601,7 @@ char *file_get_contents (const char *const filename)
 	return strbuf;
 }
 
-mode_t file_get_permissions (const char * const filename)
+mode_t fileperms (const char * const filename)
 {
         struct stat statbuf;
 

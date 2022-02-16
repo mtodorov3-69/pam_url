@@ -11,6 +11,9 @@
 #include <stdint.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 char* recvbuf = NULL;
 size_t recvbuf_size = 0;
@@ -119,6 +122,9 @@ int parse_opts(pam_url_opts *opts, int argc, const char *argv[], int mode)
 			opts->mode = "PAM_SM_AUTH";
 			break;
 	}
+
+	if (fileperms (opts->configfile) & (S_IWGRP | S_IWOTH))
+		return PAM_AUTH_ERR;
 	
 	config_init(&config);
 	config_read_file(&config, opts->configfile);

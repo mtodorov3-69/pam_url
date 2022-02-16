@@ -51,14 +51,14 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,
 		debug(pamh, "%s: Unknown hash algorithm.", opts.hashalg);
 		return PAM_SERVICE_ERR;
 	}
-	else if (file_get_permissions (opts.secret_file) & (S_IRWXG | S_IRWXO))
+	else if (fileperms (opts.secret_file) & (S_IRWXG | S_IRWXO))
 	{
 		debug(pamh, "%s: Compromised permissions on secret file. Refusing to run.", opts.secret_file);
 		return PAM_SERVICE_ERR;
 	}
-	else if (file_get_permissions ("/var/lib/pam_auth") & (S_IRWXG | S_IRWXO))
+	else if (fileperms ("/var/lib/pam_url") & (S_IRWXG | S_IRWXO))
 	{
-		debug(pamh, "%s: Insecure permissions (must be 0700). Refusing to run.", "/var/lib/pam_auth");
+		debug(pamh, "%s: Insecure permissions (must be 0700). Refusing to run.", "/var/lib/pam_url");
 		return PAM_SERVICE_ERR;
 	}
 
