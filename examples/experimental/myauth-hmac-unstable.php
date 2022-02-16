@@ -1,6 +1,7 @@
 <?php
 
 // mtodorov, 2022-01-22, Copyleft by GPLv2 or later.
+// v0.08.00 2022-02-15 support for sha3-256, check secret safety
 // v0.07.02 2022-02-08 support for sha512, prevent brute force on hash functions
 // v0.07.01 2022-02-07 some security hardening
 // v0.07 2022-02-07 added unique request serial number protection.
@@ -65,11 +66,14 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 	$serial = $_POST["serial"];
 	$hash = $_POST["hash"];
 	$xor_pass_hex = $_POST["pass"];
+	$secret_file = "/usr/local/etc/myauth/secret";
 
 	if (strlen($nonce) > 1024 || strlen($serial) > 100 || strlen($hash) > 1024 || strlen($_POST["user"]) > 128
 				  || strlen($_POST["pass"]) > 1024 || strlen($_POST["clientIP"]) > 32)
 		$ret = 407;
-	else if (($rawsecret = file_get_contents("/usr/local/etc/myauth/secret")) !== false) {
+	else if (($perms = fileperms($secret_file)) !== false && ($perms & 0077) == 0 &&
+		 (($rawsecret = file_get_contents($secret_file)) !== false)) {
+		error_log("INFO: entered hash verification.");
 		$secret = trim($rawsecret);
 		$concatstr = $nonce . $_POST["user"] . $_POST["pass"] . $_POST["mode"] . $_POST["clientIP"] . $serial . $secret . $nonce;
 		if (strlen($concatstr) > 4096)
@@ -97,16 +101,18 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 				}
 			}
 		}
+		if ( $ret !== 0 ) {
+			header("HTTP/1.1 $ret Forbidden");
+			error_log("ALERT: Counterfeit request: Bad hash in request from $ip_address");
+			echo "ACCESS DENIED";
+			exit(7);
+		}
+	} else if (($perms & 0077) != 0) {
+			error_log("ALERT: Compromised permissions on secret: $secret_file");
+			$ret = 500;
 	} else {
 		$ret = 402;
 		$secret = "";
-	}
-
-	if ( $ret !== 0 ) {
-		header("HTTP/1.1 $ret Forbidden");
-		error_log("ALERT: Counterfeit request: Bad hash in request from $ip_address");
-		echo "ACCESS DENIED";
-		exit(7);
 	}
 
 	$serial_file = "/usr/local/etc/myauth/serial";

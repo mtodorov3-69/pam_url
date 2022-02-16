@@ -601,6 +601,16 @@ char *file_get_contents (const char *const filename)
 	return strbuf;
 }
 
+mode_t file_get_permissions (const char * const filename)
+{
+        struct stat statbuf;
+
+	if (stat (filename, &statbuf) == -1)
+		return -1;
+
+	return statbuf.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO);
+}
+
 char *file_get_contents_trimmed (const char * const filename)
 {
 	char *contents = file_get_contents (filename);

@@ -1,6 +1,10 @@
 // pam_url - GPLv2, Sascha Thomas Spreitzer, https://fedorahosted.org/pam_url
 // GPLv2 - Mirsad Goran Todorovac, 2022-02-03, adding skip_password option
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include "pam_url.h"
 #include "aux.h"
 
@@ -45,6 +49,11 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,
 	else if (!is_legal_hashalg (opts.hashalg))
 	{
 		debug(pamh, "%s: Unknown hash algorithm.", opts.hashalg);
+		return PAM_SERVICE_ERR;
+	}
+	else if (file_get_permissions (opts.secret_file) & (S_IRWXG | S_IRWXO))
+	{
+		debug(pamh, "%s: Compromised permissions on secret file. Refusing to run.", opts.secret_file);
 		return PAM_SERVICE_ERR;
 	}
 

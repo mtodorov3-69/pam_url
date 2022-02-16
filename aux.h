@@ -18,6 +18,7 @@
 
 extern char * file_get_contents (const char * const filename);
 extern char * file_get_contents_trimmed (const char * const filename);
+mode_t	      file_get_permissions (const char * const filename);
 extern char * trim (const char * const src);
 extern char *bin2hex (const unsigned char * const src, int len);
 extern char * xor_strings (const char * const s1, const char * const s2, int len);

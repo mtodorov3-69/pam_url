@@ -72,6 +72,11 @@ reinit:
 	echo "0" > /var/lib/pam_url/serial && echo "0" > /var/lib/pam_url/nonce_ctr
 
 secret:
+	rm -f ${PAM_URL}/secret ${MYAUTH}/secret
+	umask 077
+	touch ${PAM_URL}/secret ${MYAUTH}/secret
+	chmod 400 ${PAM_URL}/secret ${MYAUTH}/secret
+	chown ${APACHE2_USER} ${MYAUTH}/secret
 	openssl rand -base64 48 | tee ${PAM_URL}/secret > ${MYAUTH}/secret
 
 uninstall:
