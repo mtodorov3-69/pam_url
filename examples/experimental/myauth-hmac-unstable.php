@@ -117,7 +117,8 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 
 	$serial_file = "/usr/local/etc/myauth/serial";
 
-	if ( $ret == 0 && ($rawserial = file_get_contents($serial_file)) !== false) {
+	if (($perms = fileperms($serial_file)) !== false && ($perms & 0077) == 0 &&
+	     $ret == 0 && ($rawserial = file_get_contents($serial_file)) !== false) {
 		$myserial = trim($rawserial);
 		if ($myserial >= $serial)
 			$ret = 405;
@@ -128,7 +129,12 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 			else
 				$ret = 0;
 		}
-	} else
+	} else if (($perms & 0077) != 0) {
+		// Someone is either incompetent or trying something nasty.
+		// We won't play along ...
+		error_log("ALERT: Compromised permissions on serial: $serial_file");
+		$ret = 501;
+	} else	
 		$ret = 404;
 
 	if ( $ret !== 0 ) {
