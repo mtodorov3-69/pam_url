@@ -20,6 +20,8 @@
 
 // DO SOURCE IP REGION CHECKS HERE, OTHERWISE BRUTEFORCE attacks might occur!!
 
+$hashalg = "sha3-256";
+
 $ip_address = $_SERVER['REMOTE_ADDR'];
 $ip_srv_address = $_SERVER['SERVER_ADDR'];
 
@@ -79,7 +81,7 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 		if (strlen($concatstr) > 4096)
 			$ret = 407;
 		else {
-			$myhash = hash("sha3-256", $concatstr);
+			$myhash = hash($hashalg, $concatstr);
 			$concatstr = "";
 			if ($hash !== $myhash) {
 				$secret = ""; // forget secret as soon as we no longer need it
@@ -89,7 +91,7 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 				if (strlen ($concatstr) > 4096)  // probably a forged request in a brute force attack
 					$ret = 407;
 				else {
-					$rethash = hash("sha3-256", $nonce . $serial . $secret . $nonce);
+					$rethash = hash($hashalg, $nonce . $serial . $secret . $nonce);
 					$concatstr = "";
 					$pass = "";
 					$xor_pass = hex2bin($xor_pass_hex);
