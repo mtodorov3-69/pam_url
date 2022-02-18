@@ -1,0 +1,4 @@
+
+2022-02-18 Fri
+	Occassionally, pam_url may abort with error msg: "*** %n in writable segment detected ***".
+

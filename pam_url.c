@@ -124,7 +124,7 @@ int parse_opts(pam_url_opts *opts, int argc, const char *argv[], int mode)
 	}
 
 	if (fileperms (opts->configfile) & (S_IWGRP | S_IWOTH))
-		return PAM_AUTH_ERR;
+		return PAM_SYSTEM_ERR;
 	
 	config_init(&config);
 	config_read_file(&config, opts->configfile);

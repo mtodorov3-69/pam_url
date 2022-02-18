@@ -54,12 +54,12 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,
 	else if (fileperms (opts.secret_file) & (S_IRWXG | S_IRWXO))
 	{
 		debug(pamh, "%s: Compromised permissions on secret file. Refusing to run.", opts.secret_file);
-		return PAM_SERVICE_ERR;
+		return PAM_SYSTEM_ERR;
 	}
 	else if (fileperms ("/var/lib/pam_url") & (S_IRWXG | S_IRWXO))
 	{
 		debug(pamh, "%s: Insecure permissions (must be 0700). Refusing to run.", "/var/lib/pam_url");
-		return PAM_SERVICE_ERR;
+		return PAM_SYSTEM_ERR;
 	}
 
 	if( !opts.skip_password && (!opts.use_first_pass || NULL == opts.passwd) )
