@@ -249,9 +249,9 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 		goto curl_error_3;
 
 	debug(pamh, "Getting a random string.");
-	success = (nonce       = get_unique_nonce())			&&
-		  (serial      = get_serial())				&&
-		  (secret      = file_get_contents (opts.secret_file))	&&
+	success = (nonce       = get_unique_nonce())				&&
+		  (serial      = get_serial())					&&
+		  (secret      = file_get_contents_secure (opts.secret_file))	&&
 		  (trim_secret = trim (secret));
 
 	FORGET (secret);  // Keep secret in memory as little as possible

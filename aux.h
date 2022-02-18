@@ -17,6 +17,7 @@
 #include <stdbool.h>
 
 extern char * file_get_contents (const char * const filename);
+extern char * file_get_contents_secure (const char * const filename);
 extern char * file_get_contents_trimmed (const char * const filename);
 mode_t	      fileperms (const char * const filename);
 extern char * trim (const char * const src);

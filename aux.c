@@ -40,7 +40,7 @@
 #define NONCE_CTR_FILE "/var/lib/pam_url/nonce_ctr"
 #define NONCE_CTR_LOCK_FILE "/var/lib/pam_url/nonce_ctr.lock"
 #define SERIAL_FILE "/var/lib/pam_url/serial"
-#define INITVAL 1
+#define SERIAL_INITVAL 1
 #define BUFSIZE 4096
 
 #ifdef DEBUG
@@ -50,6 +50,7 @@ bool get_serial_debug = false;
 #endif
 
 /* char * get_serial (void)
+	mtodorov 2022-Feb-18 v0.02.02 refuse to authenticate with compromised auth
 	mtodorov 2022-Feb-07 v0.02.01 hardening get_random_string()
 	mtodorov 2022-Feb-07 v0.02.00 implemented nonce counter (RFC 5116)
 	mtodorov 2022-Feb-07 v0.01.02 open serial_file if it doesn't exist
@@ -75,6 +76,10 @@ char * do_get_serial (const char * const serial_file, const char * const lock_fi
 	if (fstat (fd, &stat_buf) == -1)
 		goto getserial_fail_closefd;
 
+        /* eliminating the possibility of a race condition with loose perms */
+        if (stat_buf.st_uid != 0 || (stat_buf.st_mode & (S_IRWXG | S_IRWXO)))
+		goto getserial_fail_closefd;
+
 	if ((buf = (char *) calloc (1, stat_buf.st_size + 1)) == NULL)
 		goto getserial_fail_closefd;
 
@@ -83,12 +88,12 @@ char * do_get_serial (const char * const serial_file, const char * const lock_fi
 			fprintf (stderr, "%s: unable to read: %s\n", serial_file, strerror (errno));
 
 	if (isspace_str (buf))
-		serial = INITVAL;
+		serial = SERIAL_INITVAL;
 	else {
 		serial = strtoll (buf, NULL, 0);
 		if (errno == ERANGE) {
 			fprintf (stderr, "%s: counter overlapped: %s\n", serial_file, strerror (errno));
-			serial = INITVAL;
+			serial = SERIAL_INITVAL;
 		} else
 			serial ++;
 	}
@@ -97,9 +102,12 @@ char * do_get_serial (const char * const serial_file, const char * const lock_fi
 		goto getserial_fail_freebuf;
 
 	if (asprintf (&strbuf, "%lld", serial) == -1 || strbuf == NULL)
-		goto getserial_fail_freebuf;
+		goto getserial_fail_freestrbuf;
 
 	if ((wr = write (fd, strbuf, strlen (strbuf))) == -1 || wr != strlen (strbuf))
+		goto getserial_fail_freestrbuf;
+
+	if (fsync (fd) == -1)
 		goto getserial_fail_freestrbuf;
 
 	if (get_serial_debug)
@@ -594,6 +602,55 @@ char *file_get_contents (const char *const filename)
 		    sz -= rd;
 	        }
 	}
+
+	assert (offset <= sz);
+
+	strbuf [offset] = '\0';
+
+	close (fd);
+	return strbuf;
+}
+
+char *file_get_contents_secure (const char *const filename)
+{
+	struct stat statbuf;
+	int fd;
+	size_t offset = 0;
+	size_t rd = 0;
+	size_t sz;
+
+	if ((fd = open (filename, O_RDONLY)) == -1)
+		return NULL;
+
+	if (fstat (fd, &statbuf) == -1)
+		return NULL;
+
+	/* eliminating the possibility of a race condition with loose perms */
+        if (statbuf.st_uid != 0 || (statbuf.st_mode & (S_IRWXG | S_IRWXO)))
+                return NULL;
+
+	sz = statbuf.st_size;
+
+	char *strbuf = (char *) calloc (1, statbuf.st_size + 1);
+	if (strbuf == NULL)
+		return NULL;
+
+	strbuf [sz] = '\0';
+
+	while ((rd = read (fd, strbuf + offset, sz)) > 0)
+	{
+		if (rd == 0)
+		    break; // EOF
+
+		offset += rd;
+		if (rd == sz)
+		    break; // entire file has been read
+		else if (rd < sz) {
+		    sz -= rd;
+	        }
+	}
+
+	assert (offset <= sz);
 
 	strbuf [offset] = '\0';
 
