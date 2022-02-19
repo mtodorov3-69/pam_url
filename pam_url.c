@@ -346,8 +346,8 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 		   (rethash = hashsum_fmt(opts.hashalg, "%s%s%s%s", nonce, serial, secret, nonce));
 
 	FORGET (secret);  // Keep secret in memory as little as possible
+	FORGET (hmac_fields);
 	SAFE_FREE (nonce);
-	SAFE_FREE (hmac_fields);
 	SAFE_FREE (serial);
 
 	if (!success)
@@ -482,6 +482,8 @@ curl_error_3:
 curl_error_2:
 	curl_global_cleanup();
 curl_error_1:
+	/* to prevent brute force attacks */
+	usleep (1000000);
 	return PAM_AUTH_ERR;
 }
 

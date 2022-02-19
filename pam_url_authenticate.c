@@ -100,6 +100,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,
 	else
 	{
 		debug(pamh, "Authentication failed.");
+		usleep(1000000);
 		return PAM_AUTH_ERR;
 	}
 }
