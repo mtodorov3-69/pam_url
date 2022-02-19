@@ -711,7 +711,7 @@ char *file_get_secret (const char *const filename)
 		memmove (strbuf, p, destlen);
 	strbuf [destlen] = '\0';
 
-	if (strlen (strbuf) < 8 || is_sufficiently_complex (strbuf) == false)
+	if (strlen (strbuf) < 16 || is_sufficiently_complex (strbuf) == false)
 	{
 		compromised = true;
 		aux_errno = AUX_WEAK_SECRET;
