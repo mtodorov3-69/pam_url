@@ -43,6 +43,9 @@
 #define SERIAL_INITVAL 1
 #define BUFSIZE 4096
 
+bool compromised = false;
+int  aux_errno   = AUX_OK;
+
 #ifdef DEBUG
 bool get_serial_debug = true;
 #else
@@ -78,7 +81,10 @@ char * do_get_serial (const char * const serial_file, const char * const lock_fi
 
         /* eliminating the possibility of a race condition with loose perms */
         if (stat_buf.st_uid != 0 || (stat_buf.st_mode & (S_IRWXG | S_IRWXO)))
+	{
+		compromised = true;
 		goto getserial_fail_closefd;
+	}
 
 	if ((buf = (char *) calloc (1, stat_buf.st_size + 1)) == NULL)
 		goto getserial_fail_closefd;
@@ -144,12 +150,22 @@ getserial_fail:
 
 char * get_serial (void)
 {
-	return do_get_serial (SERIAL_FILE, LOCK_FILE);
+	char *serial = do_get_serial (SERIAL_FILE, LOCK_FILE);
+	
+	if (compromised)
+		aux_errno = AUX_COMPROMISED_SERIAL;
+
+	return serial;
 }
 
 char * get_nonce_ctr (void)
 {
-	return do_get_serial (NONCE_CTR_FILE, NONCE_CTR_LOCK_FILE);
+	char * nonce = do_get_serial (NONCE_CTR_FILE, NONCE_CTR_LOCK_FILE);
+
+	if (compromised)
+		aux_errno = AUX_COMPROMISED_NONCE;
+
+	return nonce;
 }
 
 #define MAXHOSTBUF ((MAXHOSTNAMELEN>1024)?MAXHOSTNAMELEN:1024)
@@ -611,7 +627,24 @@ char *file_get_contents (const char *const filename)
 	return strbuf;
 }
 
-char *file_get_contents_secure (const char *const filename)
+bool is_sufficiently_complex (const char * const passwd)
+{
+	bool sufficient = false;
+	int digits = 0, upper = 0, lower = 0;
+
+	for (const char *p = passwd; *p; p++)
+	{
+		     if (isdigit (*p)) digits ++;
+		else if (isupper (*p)) upper  ++;
+		else if (islower (*p)) lower  ++;
+	}
+	if (digits > 0 && upper > 0 && lower > 0)
+		sufficient = true;
+	
+	return sufficient;
+}
+
+char *file_get_secret (const char *const filename)
 {
 	struct stat statbuf;
 	int fd;
@@ -627,7 +660,16 @@ char *file_get_contents_secure (const char *const filename)
 
 	/* eliminating the possibility of a race condition with loose perms */
         if (statbuf.st_uid != 0 || (statbuf.st_mode & (S_IRWXG | S_IRWXO)))
+	{
+		compromised = true;
+		aux_errno = AUX_COMPROMISED_SECRET;
+		close (fd);
+		// force the administrator to change compromised secret
+		fd = open (filename, O_RDWR);
+		ftruncate (fd, 0);
+		close (fd);
                 return NULL;
+	}
 
 	sz = statbuf.st_size;
 
@@ -649,12 +691,33 @@ char *file_get_contents_secure (const char *const filename)
 		    sz -= rd;
 	        }
 	}
+	close (fd);
 
 	assert (offset <= sz);
 
 	strbuf [offset] = '\0';
 
-	close (fd);
+	// secret is always needed trimmed, so we'll attempt to clean up the code ...
+	int len = offset;
+	int destlen;
+	const char *p, *q;
+
+	for (p = strbuf; *p && isspace (*p); p++);
+	for (q = strbuf + len - 1; *q && isspace (*q); q--);
+	* ((char *)q + 1) = '\0';
+	destlen = q - p + 1;
+	// printf ("source='%s' p='%s' q='%s' q-p=%ld destlen=%d\n", source, p, q, q-p, destlen);
+	if (p > strbuf)
+		memmove (strbuf, p, destlen);
+	strbuf [destlen] = '\0';
+
+	if (strlen (strbuf) < 8 || is_sufficiently_complex (strbuf) == false)
+	{
+		compromised = true;
+		aux_errno = AUX_WEAK_SECRET;
+		return NULL;
+	}
+
 	return strbuf;
 }
 
@@ -681,6 +744,34 @@ char *file_get_contents_trimmed (const char * const filename)
 	return retval;
 }
 
+/*
+enum aux_errno_t {
+        AUX_OK,
+        AUX_COMPROMISED_SECRET,
+        AUX_COMPROMISED_NONCE,
+        AUX_COMPROMISED_SERIAL
+};
+
+*/
+
+const char *aux_errstr[] = {
+	"No error",
+	"Compromised secret",
+	"Secret too weak",
+	"Compromised nonce",
+	"Compromised serial",
+	"World writable config file",
+	NULL
+};
+
+const char * const aux_strerror (void)
+{
+	if (aux_errno < 0 || aux_errno >= (sizeof (aux_errstr) / sizeof (aux_errstr [0]) - 1))
+		return "Unknown error.";
+
+	return aux_errstr [aux_errno];
+}
+
 #ifdef MAIN
 
 #include <stdio.h>
@@ -693,8 +784,13 @@ int main (int argc, char *argv[])
 	// char *s1 = "BeeABBeeoBodBaBdOd";
 	char *s2 = "\n\n\t8b\n\n\t\nb&\nb b  \n%%nb%%%\n%\nQ";
 
-	printf ("hex='%s'\n", to_hex ("abcd\r\n\0\0abcd", 12));
-	printf ("hex='%s'\n", to_hex ("abcd\r\n\0\0", 8));
+	aux_errno = 0; printf ("%s\n", aux_strerror());
+	aux_errno = 1; printf ("%s\n", aux_strerror());
+	aux_errno = 2; printf ("%s\n", aux_strerror());
+	aux_errno = 3; printf ("%s\n", aux_strerror());
+	aux_errno = 4; printf ("%s\n", aux_strerror());
+	printf ("hex='%s'\n", bin2hex ("abcd\r\n\0\0abcd", 12));
+	printf ("hex='%s'\n", bin2hex ("abcd\r\n\0\0", 8));
 	printf ("xor_strings3_hex='%s'\n", xor_strings3_hex ("\x11\x22\x11\x22", "\x44\x44\x44\x44", "\x55\x66\x55\x66"));
 	printf ("xor_strings3_hex='%s'\n", xor_strings3_hex ("\x61\x22\x11\x22", "\x01\x44\x44\x44", "\x02\x66\x55\x66"));
 	printf ("xor_strings3_hex='%s'\n", xor_strings3_hex ("probni1234", "verybigsecret", "nooooooooooooooooonce"));

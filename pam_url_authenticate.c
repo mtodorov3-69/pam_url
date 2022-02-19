@@ -44,6 +44,8 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,
 	if( PAM_SUCCESS != parse_opts(&opts, argc, argv, PAM_SM_AUTH) )
 	{
 		ret++;
+		if (compromised)
+			debug(pamh, "Config error: %s", aux_strerror());
 		debug(pamh, "Could not parse module options.");
 	}
 	else if (!is_legal_hashalg (opts.hashalg))

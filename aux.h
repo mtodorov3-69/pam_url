@@ -16,8 +16,22 @@
 
 #include <stdbool.h>
 
+extern bool compromised;
+extern int  aux_errno;
+extern const char *aux_strerror();
+
+enum aux_errno_t {
+	AUX_OK,
+	AUX_COMPROMISED_SECRET,
+	AUX_WEAK_SECRET,
+	AUX_COMPROMISED_NONCE,
+	AUX_COMPROMISED_SERIAL,
+	AUX_WRITABLE_CONFIG
+};
+
 extern char * file_get_contents (const char * const filename);
-extern char * file_get_contents_secure (const char * const filename);
+extern char * file_get_secret (const char * const filename);
+bool	      is_sufficiently_complex (const char * const password);
 extern char * file_get_contents_trimmed (const char * const filename);
 mode_t	      fileperms (const char * const filename);
 extern char * trim (const char * const src);

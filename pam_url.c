@@ -40,13 +40,14 @@ int get_password(pam_handle_t* pamh, pam_url_opts* opts)
 	
 	pam_prompt(pamh, PAM_PROMPT_ECHO_OFF, &p, "%s", prompt);
 	
-	if( NULL != p && strlen(p) > 0)
+	if( NULL != p && strlen(p) >= 8 && is_sufficiently_complex(p) )
 	{
 		opts->passwd = p;
 		return PAM_SUCCESS;
 	}
 	else
 	{
+		debug(pamh, "Empty or weak password use attempt.");
 		return PAM_AUTH_ERR;
 	}
 }
@@ -105,6 +106,16 @@ int parse_opts(pam_url_opts *opts, int argc, const char *argv[], int mode)
 	
 	if(opts->configfile == NULL)
 		opts->configfile = strdup("/etc/pam_url.conf");
+
+	if (fileperms (opts->configfile) & (S_IWGRP | S_IWOTH))
+	{
+		compromised = true;
+		aux_errno = AUX_WRITABLE_CONFIG;
+		return PAM_SYSTEM_ERR;
+	}
+	
+	config_init(&config);
+	config_read_file(&config, opts->configfile);
 	
 	switch(mode)
 	{
@@ -122,12 +133,6 @@ int parse_opts(pam_url_opts *opts, int argc, const char *argv[], int mode)
 			opts->mode = "PAM_SM_AUTH";
 			break;
 	}
-
-	if (fileperms (opts->configfile) & (S_IWGRP | S_IWOTH))
-		return PAM_SYSTEM_ERR;
-	
-	config_init(&config);
-	config_read_file(&config, opts->configfile);
 
 	// General Settings
 	if(config_lookup_string(&config, "pam_url.settings.url", &opts->url) == CONFIG_FALSE)
@@ -223,7 +228,7 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 	char *passwd = NULL, *safe_passwd = NULL;
 
 	char *urlsafe_fields = NULL, *hmac_fields = NULL;
-	char *secret = NULL, *trim_secret = NULL;
+	char *secret = NULL;
 	char *xor_passwd = NULL;
 	char *hash = NULL;
 
@@ -247,19 +252,6 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 	char *safe_user = curl_easy_escape(eh, opts.user, 0);
 	if( safe_user == NULL )
 		goto curl_error_3;
-
-	debug(pamh, "Getting a random string.");
-	success = (nonce       = get_unique_nonce())				&&
-		  (serial      = get_serial())					&&
-		  (secret      = file_get_contents_secure (opts.secret_file))	&&
-		  (trim_secret = trim (secret));
-
-	FORGET (secret);  // Keep secret in memory as little as possible
-
-	if (success == false)
-		goto curl_error_5;
-
-	debug(pamh, "Read the secret. Not logging it.");
 
 	if( !opts.skip_password ) {
 		if (strncmp (opts.url, "https://", 8) != 0 ) {
@@ -294,14 +286,24 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 	if( passwd == NULL )
 		goto curl_error_5;
 
-	if (strlen (passwd) > strlen (trim_secret) || strlen (passwd) > strlen (nonce))
+	debug(pamh, "Getting a random string.");
+	success = (nonce       = get_unique_nonce())			&&
+		  (serial      = get_serial())				&&
+		  (secret      = file_get_secret (opts.secret_file));
+
+	if (success == false)
+		goto curl_error_5;
+
+	debug(pamh, "Read the secret. Not logging it.");
+
+	if (strlen (passwd) > strlen (secret) || strlen (passwd) > strlen (nonce))
 	{
 		debug(pamh, "Password too long. The encryption is not defined for passwd > secret.");
 		goto curl_error_5;
 	}
 
 	debug(pamh, "Preparing masked password.");
-	if ((xor_passwd = xor_strings3_hex (passwd, trim_secret, nonce)) == NULL)
+	if ((xor_passwd = xor_strings3_hex (passwd, secret, nonce)) == NULL)
 		goto curl_error_5;
 
 	debug(pamh, "Preparing safe password.");
@@ -311,14 +313,16 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 	FORGET (passwd);
 
 	debug(pamh, "Preparing post fields.");
-	ret = asprintf(&urlsafe_fields, "%s=%s&%s=%s&mode=%s&clientIP=%s&nonce=%s&serial=%s", opts.user_field,
+	ret = asprintf(&urlsafe_fields, "%s=%s&%s=%s&mode=%s&clientIP=%s&nonce=%s&serial=%s&hashalg=%s",
+							opts.user_field,
 							safe_user,
 							opts.passwd_field,
 							safe_passwd,
 							opts.mode,
 							(const char *)opts.clientIP,
 							nonce,
-							serial/*,
+							serial,
+							opts.hashalg/*,
 							opts.extra_field*/);
 	FORGET_NOT_FREE (safe_passwd);
 	curl_free(safe_passwd);	
@@ -338,10 +342,10 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 	if (hmac_fields == NULL)
 		goto curl_error;
 
-	success =  (hash    = hashsum_fmt(opts.hashalg, "%s%s%s%s", nonce, hmac_fields, trim_secret, nonce)) &&
-		   (rethash = hashsum_fmt(opts.hashalg, "%s%s%s%s", nonce, serial, trim_secret, nonce));
+	success =  (hash    = hashsum_fmt(opts.hashalg, "%s%s%s%s", nonce, hmac_fields, secret, nonce)) &&
+		   (rethash = hashsum_fmt(opts.hashalg, "%s%s%s%s", nonce, serial, secret, nonce));
 
-	FORGET (trim_secret);  // Keep secret in memory as little as possible
+	FORGET (secret);  // Keep secret in memory as little as possible
 	SAFE_FREE (nonce);
 	SAFE_FREE (hmac_fields);
 	SAFE_FREE (serial);
@@ -434,6 +438,8 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 
 curl_error_5:
 	curl_free(safe_user);
+	if (compromised)
+		debug(pamh, "Possible race condition and intrusion attempt: %s", aux_strerror ());
 	if (secret == NULL)
 	{
 		debug(pamh, "Failed the secret: %s", strerror (errno));
