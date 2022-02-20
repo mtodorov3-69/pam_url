@@ -13,6 +13,7 @@
 #include <stdarg.h>
 #include <openssl/evp.h>
 #include <openssl/sha.h>
+#include <openssl/ripemd.h>
 #include <stddef.h>
 #include <errno.h>
 #include <string.h>
@@ -223,6 +224,22 @@ char * sha3_512(const char * const input)
     return output;
 }
 
+//perform the RIPEMD160 hash
+char * ripemd160(const char * const input)
+{
+    uint32_t digest_length = RIPEMD160_DIGEST_LENGTH;
+    const EVP_MD* algorithm = EVP_ripemd160();
+    uint8_t* digest = (uint8_t *) (OPENSSL_malloc(digest_length));
+    EVP_MD_CTX* context = EVP_MD_CTX_new();
+    EVP_DigestInit_ex(context, algorithm, NULL);
+    EVP_DigestUpdate(context, input, strlen (input));
+    EVP_DigestFinal_ex(context, digest, &digest_length);
+    EVP_MD_CTX_destroy(context);
+    char * output = bin2hex(digest, digest_length);
+    OPENSSL_free(digest);
+    return output;
+}
+
 bool is_legal_hashalg (const char * const alg)
 {
 	     if (strcmp (alg, "sha256") == 0)
@@ -242,6 +259,8 @@ bool is_legal_hashalg (const char * const alg)
 	else if (strcmp (alg, "sha3-384") == 0)
 		return true;
 	else if (strcmp (alg, "sha3-512") == 0)
+		return true;
+	else if (strcmp (alg, "ripemd160") == 0)
 		return true;
 	else
 		return false;
@@ -267,6 +286,8 @@ char * hashsum (const char * const alg, const char * const str)
 		return sha3_384 (str);
 	else if (strcmp (alg, "sha3-512") == 0)
 		return sha3_512 (str);
+	else if (strcmp (alg, "ripemd160") == 0)
+		return ripemd160 (str);
 	else {
 		fprintf (stderr, "%s: Unknown encryption algorythm.\n", alg);
 		return NULL;
