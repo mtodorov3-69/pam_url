@@ -47,6 +47,10 @@ extern char *my_str_concat2 (const char * const s1, const char * const s2);
 extern char *my_str_concat3 (const char * const s1, const char * const s2, const char * const s3);
 extern char *my_str_concat4 (const char * const s1, const char * const s2, const char * const s3, const char * const s4);
 extern char *my_str_concat5 (const char * const s1, const char * const s2, const char * const s3, const char * const s4, const char * const s5);
+extern char *old_str_concat2 (const char * const s1, const char * const s2);
+extern char *old_str_concat3 (const char * const s1, const char * const s2, const char * const s3);
+extern char *old_str_concat4 (const char * const s1, const char * const s2, const char * const s3, const char * const s4);
+extern char *old_str_concat5 (const char * const s1, const char * const s2, const char * const s3, const char * const s4, const char * const s5);
 
 extern bool isspace_str (const char * const src);
 extern char * get_unique_nonce (void);
@@ -56,18 +60,10 @@ extern char * do_get_serial (const char * const serial_file, const char * const 
 
 #include <openssl/sha.h>
 
-extern char * sha256_string(const char * const strvalue);
-extern char * sha256sum_fmt (const char * const fmt, ...);
-extern char * sha384_string(const char * const strvalue);
-extern char * sha384sum_fmt (const char * const fmt, ...);
-extern char * sha512_string(const char * const strvalue);
-extern char * sha512sum_fmt (const char * const fmt, ...);
 extern char * hashsum (const char * const alg, const char * const strvalue);
+extern char * hashsum_file (const char * const alg, const char * const filename);
 extern char * hashsum_fmt (const char * const alg, const char * const fmt, ...);
 extern bool is_legal_hashalg (const char * const alg);
-extern void sha256_hash_string (unsigned char hash[SHA256_DIGEST_LENGTH], char outputBuffer[65]);
-extern void sha256(char *string, char outputBuffer[65]);
-extern char * sha256_file(const char * const path);
 
 #endif
 

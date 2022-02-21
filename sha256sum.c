@@ -147,6 +147,7 @@ char * hashsum_fmt (const char * const alg, const char * const fmt, ...)
 	return hashsum (alg, buf);
 }
 
+/*
 char *sha256_file(const char * const path)
 {
     FILE *file = fopen(path, "rb");
@@ -170,6 +171,7 @@ char *sha256_file(const char * const path)
     free(buffer);
     return retval;
 }
+*/
 
 #define BUFSIZE 65536
 

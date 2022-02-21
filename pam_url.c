@@ -335,7 +335,7 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 		// should not have security implications in this context).
 		goto curl_error;
 
-	hmac_fields = my_str_concat5 (opts.user, xor_passwd, opts.mode, opts.clientIP, serial);
+	hmac_fields = str_concat5 (opts.user, xor_passwd, opts.mode, opts.clientIP, serial);
 	FORGET (xor_passwd);
 	debug(pamh, "Wrote the hmac fields: %s.", hmac_fields);
 

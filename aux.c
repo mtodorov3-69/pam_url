@@ -433,7 +433,7 @@ char *xor_strings3_hex (const char * const s1, const char * const s2, const char
 	return hex_result;
 }
 
-char *my_str_concat2 (const char * const s1, const char * const s2)
+char *str_concat2 (const char * const s1, const char * const s2)
 {
 	if (s1 == NULL || s2 == NULL)
 		return NULL;
@@ -450,22 +450,21 @@ char *my_str_concat2 (const char * const s1, const char * const s2)
 
 	assert (s - retbuf == len);
 
-	if (strcmp (retbuf, s = str_concat2 (s1, s2)) != 0)
-		fprintf (stderr, "s1='%s'\ns2='%s'\n", retbuf, s);
+	assert (strcmp (retbuf, s = old_str_concat2 (s1, s2)) == 0);
 
 	return retbuf;
 }
 
-char *my_str_concat3 (const char * const s1, const char * const s2, const char * const s3)
+char *str_concat3 (const char * const s1, const char * const s2, const char * const s3)
 {
 	if (s1 == NULL || s2 == NULL || s3 == NULL)
 		return NULL;
 
-	fprintf (stderr, "s1='%s', s2='%s', s3='%s'\n", s1, s2, s3);
+	// fprintf (stderr, "s1='%s', s2='%s', s3='%s'\n", s1, s2, s3);
 	int len1 = strlen(s1), len2 = strlen(s2), len3 = strlen(s3);
 	int len = len1 + len2 + len3;
 	char *retbuf = (char *) malloc (len + 1);
-	fprintf (stderr, "len1=%d, len2=%d, len3=%d\n", len1, len2, len3);
+	// fprintf (stderr, "len1=%d, len2=%d, len3=%d\n", len1, len2, len3);
 
 	if (retbuf == NULL)
 		return NULL;
@@ -476,13 +475,12 @@ char *my_str_concat3 (const char * const s1, const char * const s2, const char *
 
 	assert (s - retbuf == len);
 
-	if (strcmp (retbuf, s = str_concat3 (s1, s2, s3)) != 0)
-		fprintf (stderr, "s1='%s'\ns2='%s'\n", retbuf, s);
+	assert (strcmp (retbuf, s = old_str_concat3 (s1, s2, s3)) == 0);
 
 	return retbuf;
 }
 
-char *my_str_concat4 (const char * const s1, const char * const s2, const char * const s3, const char * const s4)
+char *str_concat4 (const char * const s1, const char * const s2, const char * const s3, const char * const s4)
 {
 	if (s1 == NULL || s2 == NULL || s3 == NULL || s4 == NULL)
 		return NULL;
@@ -501,13 +499,12 @@ char *my_str_concat4 (const char * const s1, const char * const s2, const char *
 
 	assert (s - retbuf == len);
 
-	if (strcmp (retbuf, s = str_concat4 (s1, s2, s3, s4)) != 0)
-		fprintf (stderr, "s1='%s'\ns2='%s'\n", retbuf, s);
+	assert (strcmp (retbuf, s = old_str_concat4 (s1, s2, s3, s4)) == 0);
 
 	return retbuf;
 }
 
-char *my_str_concat5 (const char * const s1, const char * const s2, const char * const s3, const char * const s4, const char * const s5)
+char *str_concat5 (const char * const s1, const char * const s2, const char * const s3, const char * const s4, const char * const s5)
 {
 	if (s1 == NULL || s2 == NULL || s3 == NULL || s4 == NULL || s5 == NULL)
 		return NULL;
@@ -527,13 +524,12 @@ char *my_str_concat5 (const char * const s1, const char * const s2, const char *
 
 	assert (s - retbuf == len);
 
-	if (strcmp (retbuf, s = str_concat5 (s1, s2, s3, s4, s5)) != 0)
-		fprintf (stderr, "s1='%s' s2='%s'\n", retbuf, s);
+	assert (strcmp (retbuf, s = old_str_concat5 (s1, s2, s3, s4, s5)) == 0);
 
 	return retbuf;
 }
 
-char *str_concat2 (const char * const s1, const char * const s2)
+char *old_str_concat2 (const char * const s1, const char * const s2)
 {
 	char *retbuf = NULL;
 
@@ -546,7 +542,7 @@ char *str_concat2 (const char * const s1, const char * const s2)
 	return retbuf;
 }
 
-char *str_concat3 (const char * const s1, const char * const s2, const char * const s3)
+char *old_str_concat3 (const char * const s1, const char * const s2, const char * const s3)
 {
 	char *retbuf = NULL;
 
@@ -559,7 +555,7 @@ char *str_concat3 (const char * const s1, const char * const s2, const char * co
 	return retbuf;
 }
 
-char *str_concat4 (const char * const s1, const char * const s2, const char * const s3, const char * const s4)
+char *old_str_concat4 (const char * const s1, const char * const s2, const char * const s3, const char * const s4)
 {
 	char *retbuf = NULL;
 
@@ -572,7 +568,7 @@ char *str_concat4 (const char * const s1, const char * const s2, const char * co
 	return retbuf;
 }
 
-char *str_concat5 (const char * const s1, const char * const s2, const char * const s3, const char * const s4, const char * const s5)
+char *old_str_concat5 (const char * const s1, const char * const s2, const char * const s3, const char * const s4, const char * const s5)
 {
 	char *retbuf = NULL;
 
