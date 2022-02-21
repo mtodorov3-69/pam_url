@@ -14,6 +14,7 @@
 #include <openssl/evp.h>
 #include <openssl/sha.h>
 #include <openssl/ripemd.h>
+#include <openssl/whrlpool.h>
 #include <stddef.h>
 #include <errno.h>
 #include <string.h>
@@ -240,32 +241,77 @@ char * ripemd160(const char * const input)
     return output;
 }
 
-bool is_legal_hashalg (const char * const alg)
+/* mtodorov 2022-02-20
+   - minimum implementation of Swiss knife pluggable hash functions v0.1
+*/
+
+#define UNKNOWN_ALGORITHM (-1)
+
+struct hashalg {
+    const char              *algname;
+    const EVP_MD * 	   (*algorithm) (void);
+    uint32_t      	     digest_length;
+};
+
+struct hashalg algorithm_tbl [] =
 {
-	     if (strcmp (alg, "sha256") == 0)
-		return true;
-	else if (strcmp (alg, "sha2-256") == 0)
-		return true;
-	else if (strcmp (alg, "sha384") == 0)
-		return true;
-	else if (strcmp (alg, "sha2-384") == 0)
-		return true;
-	else if (strcmp (alg, "sha512") == 0)
-		return true;
-	else if (strcmp (alg, "sha2-512") == 0)
-		return true;
-	else if (strcmp (alg, "sha3-256") == 0)
-		return true;
-	else if (strcmp (alg, "sha3-384") == 0)
-		return true;
-	else if (strcmp (alg, "sha3-512") == 0)
-		return true;
-	else if (strcmp (alg, "ripemd160") == 0)
-		return true;
-	else
-		return false;
+#ifdef ALLOW_INSECURE_ALGORITHMS
+{	"sha1",		EVP_sha1,	SHA_DIGEST_LENGTH	},
+#endif
+{	"sha224",	EVP_sha224,	SHA224_DIGEST_LENGTH	},
+{	"sha256",	EVP_sha256,	SHA256_DIGEST_LENGTH	},
+{	"sha384",	EVP_sha384,	SHA384_DIGEST_LENGTH	},
+{	"sha512",	EVP_sha512,	SHA512_DIGEST_LENGTH	},
+{	"sha3-224",	EVP_sha3_224,	SHA224_DIGEST_LENGTH	},
+{	"sha3-256",	EVP_sha3_256,	SHA256_DIGEST_LENGTH	},
+{	"sha3-384",	EVP_sha3_384,	SHA384_DIGEST_LENGTH	},
+{	"sha3-512",	EVP_sha3_512,	SHA512_DIGEST_LENGTH	},
+{	"ripemd160",	EVP_ripemd160,	RIPEMD160_DIGEST_LENGTH	},
+{	"whirlpool",	EVP_whirlpool,	WHIRLPOOL_DIGEST_LENGTH	},
+#ifdef USE_HASH_SM3
+{	"sm3",		EVP_sm3,	256/8			},
+#endif
+{	NULL,		NULL,		0			}
+};
+
+int get_hashalg_index (const char * const alg)
+{
+	for (int i = 0; algorithm_tbl[i].algname != NULL; i++)
+		if (strcmp (algorithm_tbl[i].algname, alg) == 0)
+			return i;
+
+	return UNKNOWN_ALGORITHM;
 }
 
+//perform the Swiss knife hash
+char * hashsum(const char * const alg, const char * const input)
+{
+    int alg_index = get_hashalg_index (alg);
+    if (alg_index == UNKNOWN_ALGORITHM)
+	return NULL;
+    uint32_t digest_length  = algorithm_tbl [alg_index].digest_length;
+    const EVP_MD* algorithm = (algorithm_tbl [alg_index].algorithm)();
+    uint8_t* digest = (uint8_t *) (OPENSSL_malloc(digest_length));
+    EVP_MD_CTX* context = EVP_MD_CTX_new();
+    EVP_DigestInit_ex(context, algorithm, NULL);
+    EVP_DigestUpdate(context, input, strlen (input));
+    EVP_DigestFinal_ex(context, digest, &digest_length);
+    EVP_MD_CTX_destroy(context);
+    char * output = bin2hex(digest, digest_length);
+    OPENSSL_free(digest);
+    return output;
+}
+
+bool is_legal_hashalg (const char * const alg)
+{
+	for (int i = 0; algorithm_tbl[i].algname != NULL; i++)
+		if (!strcmp (algorithm_tbl[i].algname, alg) == 0)
+			return true;
+
+	return false;
+}
+
+/*
 char * hashsum (const char * const alg, const char * const str)
 {
 	     if (strcmp (alg, "sha256") == 0)
@@ -293,6 +339,7 @@ char * hashsum (const char * const alg, const char * const str)
 		return NULL;
 	}
 }
+*/
 
 char * hashsum_fmt (const char * const alg, const char * const fmt, ...)
 {
@@ -386,9 +433,13 @@ int main(int argc, char **argv)
 			printf("hash1 = '%s', hash2 = '%s'\n", hash1, hash2);
 	}
 */
-	printf("%s sha3-256\n", sha3_256(argv[1]));
-	printf("%s sha3-384\n", sha3_384(argv[1]));
-	printf("%s sha3-512\n", sha3_512(argv[1]));
+	if (argv[1]) {
+		printf("%s %s sha3-256\n", sha3_256(argv[1]), hashsum ("sha3-256", argv[1]));
+		printf("%s %s sha3-384\n", sha3_384(argv[1]), hashsum ("sha3-384", argv[1]));
+		printf("%s %s sha3-512\n", sha3_512(argv[1]), hashsum ("sha3-512", argv[1]));
+	} else
+		printf("Usage: %s string\n", argv[0]);
+
 	return 0;
 }
 

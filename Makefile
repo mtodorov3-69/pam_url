@@ -69,7 +69,8 @@ test:
 	pamtester -v test 'CN=tablet-unknown.example.hr, O=EXAMPLE-ORG' authenticate
 
 reinit:
-	echo "0" > /var/lib/pam_url/serial && echo "0" > /var/lib/pam_url/nonce_ctr
+	chmod 700 /var/lib/pam_url/serial /var/lib/pam_url/nonce_ctr /usr/local/etc/myauth/serial
+	echo "0" > /var/lib/pam_url/serial && echo "0" > /var/lib/pam_url/nonce_ctr && echo "0" > /usr/local/etc/myauth/serial
 
 secret:
 	rm -f ${PAM_URL}/secret ${MYAUTH}/secret
