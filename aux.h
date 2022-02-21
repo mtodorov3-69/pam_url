@@ -67,7 +67,7 @@ extern char * hashsum_fmt (const char * const alg, const char * const fmt, ...);
 extern bool is_legal_hashalg (const char * const alg);
 extern void sha256_hash_string (unsigned char hash[SHA256_DIGEST_LENGTH], char outputBuffer[65]);
 extern void sha256(char *string, char outputBuffer[65]);
-extern int sha256_file(char *path, char outputBuffer[65]);
+extern char * sha256_file(const char * const path);
 
 #endif
 

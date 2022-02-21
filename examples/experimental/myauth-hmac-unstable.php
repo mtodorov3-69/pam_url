@@ -25,7 +25,7 @@ if ( isset ($_POST["hashalg"]) )
 else
 	$hashalg = "sha3-256";
 
-if ( !in_array ($hashalg, hash_algos()) )
+if ( !in_array ($hashalg, openssl_get_md_methods()) )
 {
 	error_log("ALERT: $hashalg: Unknown hash algorithm.");
 	header("HTTP/1.1 403 Forbidden");
@@ -92,7 +92,7 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 		if (strlen($concatstr) > 4096)
 			$ret = 407;
 		else {
-			$myhash = hash($hashalg, $concatstr);
+			$myhash = openssl_digest($concatstr, $hashalg);
 			$concatstr = "";
 			if ($hash !== $myhash) {
 				$secret = ""; // forget secret as soon as we no longer need it
@@ -102,7 +102,7 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 				if (strlen ($concatstr) > 4096)  // probably a forged request in a brute force attack
 					$ret = 407;
 				else {
-					$rethash = hash($hashalg, $nonce . $serial . $secret . $nonce);
+					$rethash = openssl_digest($nonce . $serial . $secret . $nonce, $hashalg);
 					$concatstr = "";
 					$pass = "";
 					$xor_pass = hex2bin($xor_pass_hex);
