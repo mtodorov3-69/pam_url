@@ -11,13 +11,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#include <openssl/evp.h>
-#include <openssl/sha.h>
-#include <openssl/ripemd.h>
-#include <openssl/whrlpool.h>
 #include <stddef.h>
 #include <errno.h>
 #include <string.h>
+#ifdef MMAP_ENABLE
+	#include <sys/types.h>
+	#include <sys/stat.h>
+	#include <sys/mman.h>
+	#include <fcntl.h>
+	#include <unistd.h>
+#endif
+#include <openssl/evp.h>
 #include "aux.h"
 
 #define SHA256_STRLEN (SHA256_DIGEST_LENGTH * 2)
@@ -69,64 +73,46 @@ int get_hashalg_index (const char * const alg)
 	return UNKNOWN_ALGORITHM;
 }
 
-//perform the Swiss knife hash
-char * hashsum(const char * const alg, const char * const input)
+// perform the Swiss knife hash
+char * hashsum_blk(const char * const alg, const char * const input, unsigned int input_length)
 {
     int alg_index = get_hashalg_index (alg);
     if (alg_index == UNKNOWN_ALGORITHM)
 	return NULL;
     const EVP_MD* algorithm = (algorithm_tbl [alg_index].algorithm)();
-    uint32_t digest_length  = EVP_MD_size (algorithm); // FIXME: find this struct def include!!!
+    uint32_t digest_length  = EVP_MD_size (algorithm);
     uint8_t* digest = (uint8_t *) (OPENSSL_malloc(digest_length));
-    // uint32_t digest_length  = algorithm_tbl [alg_index].digest_length;
-    EVP_MD_CTX* context = EVP_MD_CTX_new();
-    EVP_DigestInit_ex(context, algorithm, NULL);
-    EVP_DigestUpdate(context, input, strlen (input));
-    EVP_DigestFinal_ex(context, digest, &digest_length);
-    EVP_MD_CTX_destroy(context);
+    if (!digest)
+	return NULL;
+    EVP_Digest(input, input_length, digest, &digest_length, algorithm, NULL);
     char * output = bin2hex(digest, digest_length);
     OPENSSL_free(digest);
     return output;
 }
 
+// perform the Swiss knife hash, static buffer version
+char * hashsum_blk_new(const char * const alg, const char * const input, unsigned int input_length)
+{
+    uint8_t digest[EVP_MAX_MD_SIZE * 16]; // allow for future extensions up to 1024-byte hash
+    uint32_t digest_length = EVP_MAX_MD_SIZE;
+
+    int alg_index = get_hashalg_index (alg);
+    if (alg_index == UNKNOWN_ALGORITHM)
+	return NULL;
+    const EVP_MD* algorithm = (algorithm_tbl [alg_index].algorithm)();
+    EVP_Digest(input, input_length, digest, &digest_length, algorithm, NULL);
+    return bin2hex(digest, digest_length);
+}
+
+char * hashsum(const char * const alg, const char * const input)
+{
+    return hashsum_blk (alg, input, strlen (input));
+}
+
 bool is_legal_hashalg (const char * const alg)
 {
-	for (int i = 0; algorithm_tbl[i].algname != NULL; i++)
-		if (!strcmp (algorithm_tbl[i].algname, alg) == 0)
-			return true;
-
-	return false;
+	return get_hashalg_index (alg) != UNKNOWN_ALGORITHM;
 }
-
-/*
-char * hashsum (const char * const alg, const char * const str)
-{
-	     if (strcmp (alg, "sha256") == 0)
-		return sha256_string (str);
-	else if (strcmp (alg, "sha2-256") == 0)
-		return sha256_string (str);
-	else if (strcmp (alg, "sha384") == 0)
-		return sha384_string (str);
-	else if (strcmp (alg, "sha2-384") == 0)
-		return sha384_string (str);
-	else if (strcmp (alg, "sha512") == 0)
-		return sha512_string (str);
-	else if (strcmp (alg, "sha2-512") == 0)
-		return sha512_string (str);
-	else if (strcmp (alg, "sha3-256") == 0)
-		return sha3_256 (str);
-	else if (strcmp (alg, "sha3-384") == 0)
-		return sha3_384 (str);
-	else if (strcmp (alg, "sha3-512") == 0)
-		return sha3_512 (str);
-	else if (strcmp (alg, "ripemd160") == 0)
-		return ripemd160 (str);
-	else {
-		fprintf (stderr, "%s: Unknown encryption algorythm.\n", alg);
-		return NULL;
-	}
-}
-*/
 
 char * hashsum_fmt (const char * const alg, const char * const fmt, ...)
 {
@@ -146,32 +132,6 @@ char * hashsum_fmt (const char * const alg, const char * const fmt, ...)
 
 	return hashsum (alg, buf);
 }
-
-/*
-char *sha256_file(const char * const path)
-{
-    FILE *file = fopen(path, "rb");
-    if(!file) return NULL;
-
-    unsigned char hash[SHA256_DIGEST_LENGTH];
-    SHA256_CTX sha256;
-    SHA256_Init(&sha256);
-    const int bufSize = 32768;
-    unsigned char *buffer = malloc(bufSize);
-    int bytesRead = 0;
-    if(!buffer) return NULL;
-    while((bytesRead = fread(buffer, 1, bufSize, file)))
-    {
-        SHA256_Update(&sha256, buffer, bytesRead);
-    }
-    SHA256_Final(hash, &sha256);
-
-    char *retval = bin2hex(hash, SHA256_DIGEST_LENGTH);
-    fclose(file);
-    free(buffer);
-    return retval;
-}
-*/
 
 #define BUFSIZE 65536
 
@@ -205,6 +165,47 @@ char * hashsum_file(const char * const alg, const char * const filename)
     OPENSSL_free(digest);
     return output;
 }
+
+#ifdef MMAP_ENABLE
+
+/* mmap() has inherent bug in generating SIGSEGV when file shortens under mapping
+	but is accessed beyond the EOF.
+	However, it is twice as fast as open/read().
+   Use at your own risk.
+*/
+
+char * hashsum_file_map (const char * const alg, const char * const filename)
+{
+	int fd;
+	struct stat stat_buf;
+	void *maddr;
+
+	if ((fd = open (filename, O_RDONLY)) == -1)
+		goto hashsum_file_map_exit;
+
+	if (fstat (fd, &stat_buf) == -1)
+		goto hashsum_file_map_exit2;
+
+	if ((maddr = mmap (NULL, stat_buf.st_size, PROT_READ, MAP_PRIVATE, fd, 0)) == MAP_FAILED)
+		goto hashsum_file_map_exit2;
+
+	char *hash = hashsum_blk (alg, maddr, stat_buf.st_size);
+
+	if (munmap (maddr, stat_buf.st_size) == -1)
+		/* proceed */;
+
+	if (close (fd) == -1)
+		/* proceed */;
+
+	return hash;
+		
+hashsum_file_map_exit2:
+	close (fd);
+hashsum_file_map_exit:
+	return NULL;
+}
+
+#endif
 
 #ifdef MAIN_SHA256
 
@@ -269,7 +270,10 @@ int main(int argc, char **argv)
 		exit (1);
 	}
 
-	printf ("%s\t%s\n", argv[2], hashsum_file (argv[1], argv[2]));
+	printf ("%s\t%s\n", hashsum_file     (argv[1], argv[2]), argv[2]);
+#ifdef MMAP_ENABLE
+	printf ("%s\t%s\n", hashsum_file_map (argv[1], argv[2]), argv[2]);
+#endif
 
 }
 

@@ -460,11 +460,9 @@ char *str_concat3 (const char * const s1, const char * const s2, const char * co
 	if (s1 == NULL || s2 == NULL || s3 == NULL)
 		return NULL;
 
-	// fprintf (stderr, "s1='%s', s2='%s', s3='%s'\n", s1, s2, s3);
 	int len1 = strlen(s1), len2 = strlen(s2), len3 = strlen(s3);
 	int len = len1 + len2 + len3;
 	char *retbuf = (char *) malloc (len + 1);
-	// fprintf (stderr, "len1=%d, len2=%d, len3=%d\n", len1, len2, len3);
 
 	if (retbuf == NULL)
 		return NULL;
@@ -614,12 +612,12 @@ char *file_get_contents (const char *const filename)
 		    sz -= rd;
 	        }
 	}
+	close (fd);
 
 	assert (offset <= sz);
 
 	strbuf [offset] = '\0';
 
-	close (fd);
 	return strbuf;
 }
 
