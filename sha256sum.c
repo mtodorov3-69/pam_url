@@ -54,6 +54,8 @@ struct hash_alg algorithm_tbl [] =
 {	"sha3-256",	EVP_sha3_256	},
 {	"sha3-384",	EVP_sha3_384	},
 {	"sha3-512",	EVP_sha3_512	},
+{	"shake128",	EVP_shake128	},
+{	"shake256",	EVP_shake256	},
 {	"ripemd160",	EVP_ripemd160	},
 {	"whirlpool",	EVP_whirlpool	},
 {	"blake2s256",	EVP_blake2s256	},
@@ -186,15 +188,17 @@ char * hashsum_file_map (const char * const alg, const char * const filename)
 	if (fstat (fd, &stat_buf) == -1)
 		goto hashsum_file_map_exit2;
 
-	if ((maddr = mmap (NULL, stat_buf.st_size, PROT_READ, MAP_PRIVATE, fd, 0)) == MAP_FAILED)
-		goto hashsum_file_map_exit2;
+	maddr = mmap (NULL, stat_buf.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+
+	if (close (fd) == -1)
+		/* proceed */;
+
+	if (maddr == MAP_FAILED)
+		return hashsum_file (alg, filename);
 
 	char *hash = hashsum_blk (alg, maddr, stat_buf.st_size);
 
 	if (munmap (maddr, stat_buf.st_size) == -1)
-		/* proceed */;
-
-	if (close (fd) == -1)
 		/* proceed */;
 
 	return hash;

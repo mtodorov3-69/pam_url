@@ -467,12 +467,14 @@ char *str_concat3 (const char * const s1, const char * const s2, const char * co
 	if (retbuf == NULL)
 		return NULL;
 
-	char *s = stpncpy (retbuf, s1, len1);
-	s = stpncpy (s, s2, len2);
-	s = stpncpy (s, s3, len3);
+	char *s = stpcpy (retbuf, s1);
+	s = stpcpy (s, s2);
+	s = stpcpy (s, s3);
 
 	assert (s - retbuf == len);
 
+	if (strcmp (retbuf, s = old_str_concat3 (s1, s2, s3)) != 0)
+	    fprintf (stderr, "s1='%s' s2='%s' s3='%s'\nretbuf='%s'\noldstr='%s'\n", s1, s2, s3, retbuf, old_str_concat3 (s1, s2, s3));
 	assert (strcmp (retbuf, s = old_str_concat3 (s1, s2, s3)) == 0);
 
 	return retbuf;

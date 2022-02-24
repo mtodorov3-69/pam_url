@@ -1,4 +1,8 @@
 
+2022-02-24 Thu
+	Spurious assertion fail with hash alg sha3-256 authenticating user 'unknown' (FIXME).
+		FIXED: stpncpy problem.
+
 2022-02-18 Fri
 	Occassionally, pam_url may abort with error msg: "*** %n in writable segment detected ***".
 
