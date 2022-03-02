@@ -34,6 +34,8 @@ extern char * file_get_secret (const char * const filename);
 bool	      is_sufficiently_complex (const char * const password);
 extern char * file_get_contents_trimmed (const char * const filename);
 mode_t	      fileperms (const char * const filename);
+extern bool file_is_secure (const char *const filename);
+extern bool dir_is_secure (const char *const filename);
 extern char * trim (const char * const src);
 extern char *bin2hex (const unsigned char * const src, int len);
 extern char * xor_strings (const char * const s1, const char * const s2, int len);

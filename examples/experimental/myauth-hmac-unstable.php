@@ -78,10 +78,11 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 	$nonce = $_POST["nonce"];
 	$serial = $_POST["serial"];
 	$hash = $_POST["hash"];
+	$xor_user_hex = $_POST["user"];
 	$xor_pass_hex = $_POST["pass"];
 	$secret_file = "/usr/local/etc/myauth/secret";
 
-	if (strlen($nonce) > 1024 || strlen($serial) > 100 || strlen($hash) > 1024 || strlen($_POST["user"]) > 128
+	if (strlen($nonce) > 1024 || strlen($serial) > 100 || strlen($hash) > 1024 || strlen($_POST["user"]) > 1024
 				  || strlen($_POST["pass"]) > 1024 || strlen($_POST["clientIP"]) > 32)
 		$ret = 407;
 	else if (($perms = fileperms($secret_file)) !== false && ($perms & 0077) == 0 &&
@@ -104,7 +105,12 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 				else {
 					$rethash = openssl_digest($nonce . $serial . $secret . $nonce, $hashalg);
 					$concatstr = "";
+					$user = "";
 					$pass = "";
+					$xor_user = hex2bin($xor_user_hex);
+					for ($i = 0; $i < strlen($xor_user_hex) / 2; $i++)
+					     $user = $user . ($nonce[$i] ^ $secret[$i] ^ $xor_user[$i]);
+					// error_log ("INFO: decrypted user=$user");
 					$xor_pass = hex2bin($xor_pass_hex);
 					for ($i = 0; $i < strlen($xor_pass_hex) / 2; $i++)
 					     $pass = $pass . ($nonce[$i] ^ $secret[$i] ^ $xor_pass[$i]);
@@ -182,18 +188,18 @@ else if( isset($_POST["user"]) && isset($_POST["pass"]) && isset($_POST["mode"])
 					continue;
 				    if (strpos($input_line, ' -> ') !== false) {
 					list ($certsn, $username) = explode(' -> ', $input_line);
-					if (strcmp($certsn, $_POST['user']) == 0 && posix_getpwnam($username) !== false) {
+					if (strcmp($certsn, $user) == 0 && posix_getpwnam($username) !== false) {
 					    $ret = 0;
 					    break;
 					}
-				    } else if (strcmp($input_line, $_POST['user']) == 0 && strpos($input_line, '@') !== false) {
+				    } else if (strcmp($input_line, $user) == 0 && strpos($input_line, '@') !== false) {
 					list (, $certsnpart) = explode('CN=', $input_line);
 					list ($username, ) = explode('@', $certsnpart);
 					if (posix_getpwnam($username) !== false) {
 					    $ret = 0;
 					    break;
 					}
-				    } else if (strcmp($input_line, $_POST['user']) == 0) {
+				    } else if (strcmp($input_line, $user) == 0) {
 					$ret = 0;
 					break;
 				    }

@@ -95,6 +95,8 @@
     #define DEF_PROMPT "Password: "
 #endif
 
+#define PAM_URL_DIR "/var/lib/pam_url"
+
 extern bool pam_url_debug;
 
 typedef struct pam_url_opts_ {

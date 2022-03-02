@@ -249,10 +249,6 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 	if( NULL == (eh = curl_easy_init() ) )
 		goto curl_error_2;
 
-	char *safe_user = curl_easy_escape(eh, opts.user, 0);
-	if( safe_user == NULL )
-		goto curl_error_3;
-
 	if( !opts.skip_password ) {
 		if (strncmp (opts.url, "https://", 8) != 0 ) {
 			debug(pamh, "ALERT: Attempt to send password in clear refused. Make sure that you are using HTTPS!");
@@ -296,6 +292,15 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 
 	debug(pamh, "Read the secret. Not logging it.");
 
+	char *xor_user = NULL;
+
+	if ((xor_user = xor_strings3_hex (opts.user, secret, nonce)) == NULL)
+		goto curl_error_5;
+
+	char *safe_user = curl_easy_escape(eh, xor_user, 0);
+	if( safe_user == NULL )
+		goto curl_error_5;
+
 	if (strlen (passwd) > strlen (secret) || strlen (passwd) > strlen (nonce))
 	{
 		debug(pamh, "Password too long. The encryption is not defined for passwd > secret.");
@@ -335,8 +340,10 @@ int fetch_url(pam_handle_t *pamh, pam_url_opts opts)
 		// should not have security implications in this context).
 		goto curl_error;
 
-	hmac_fields = str_concat5 (opts.user, xor_passwd, opts.mode, opts.clientIP, serial);
+	hmac_fields = str_concat5 (xor_user, xor_passwd, opts.mode, opts.clientIP, serial);
 	FORGET (xor_passwd);
+	SAFE_FREE (xor_user);
+
 	debug(pamh, "Wrote the hmac fields: %s.", hmac_fields);
 
 	if (hmac_fields == NULL)
@@ -457,6 +464,8 @@ curl_error_5:
 curl_error:
 	debug(pamh, "curl_error: freeing memory");
 	// double check everything for memory leaks
+	if (xor_user	!= NULL)
+		SAFE_FREE (xor_user);
 	if (xor_passwd  != NULL)
 		FORGET (xor_passwd);
 	if (passwd      != NULL)
@@ -477,7 +486,7 @@ curl_error_4:
 		SAFE_FREE (hash);
 	if (rethash        != NULL)
 		SAFE_FREE (rethash);
-curl_error_3:
+//curl_error_3:
 	curl_easy_cleanup(eh);
 curl_error_2:
 	curl_global_cleanup();

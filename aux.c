@@ -717,6 +717,28 @@ char *file_get_secret (const char *const filename)
 	return strbuf;
 }
 
+bool file_is_secure (const char *const filename)
+{
+	struct stat statbuf;
+
+	if (stat (filename, &statbuf) == -1)
+		return false;
+
+	/* eliminating the possibility of a race condition with loose perms */
+        if (statbuf.st_uid != 0 || (statbuf.st_mode & (S_IRWXG | S_IRWXO)))
+	{
+		compromised = true;
+                return false;
+	}
+
+	return true;
+}
+
+bool dir_is_secure (const char *const filename)
+{
+	return file_is_secure (filename);
+}
+
 mode_t fileperms (const char * const filename)
 {
         struct stat statbuf;
